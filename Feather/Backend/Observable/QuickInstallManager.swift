@@ -196,6 +196,10 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// Tap on the progress ring: cancels a running download (later steps cannot be interrupted safely).
 	func cancel(_ key: String) {
+		if case .installing = states[key] {
+			cancelInstall(key)
+			return
+		}
 		guard case .downloading = states[key] else { return }
 		if let id = downloadIDs[key], let dl = DownloadManager.shared.getDownload(by: id) {
 			DownloadManager.shared.cancelDownload(dl)
@@ -203,6 +207,35 @@ final class QuickInstallManager: ObservableObject {
 		}
 		downloadIDs[key] = nil
 		states[key] = nil
+	}
+	
+	/// Cancels an install that iOS has not started yet (packaging, or waiting on the iOS prompt).
+	/// Once iOS is installing it cannot be stopped from here, so the tap is ignored then.
+	func cancelInstall(_ key: String) {
+		if _installingKey == key {
+			if let status = _viewModel?.status {
+				switch status {
+				case .sendingPayload, .installing, .completed: return
+				default: break
+				}
+			}
+			_resetQuietly(key)
+		} else if let index = _queue.firstIndex(where: { $0.1 == key }) {
+			_queue.remove(at: index)
+			states[key] = nil
+			installProgress[key] = nil
+		}
+	}
+	
+	/// Back to the normal button, no alert (user canceled; nothing failed).
+	private func _resetQuietly(_ key: String) {
+		states[key] = nil
+		installProgress[key] = nil
+		_fallbackTried.remove(key)
+		_attemptSigned[key] = nil
+		if _installingKey == key {
+			_teardownInstall()
+		}
 	}
 	
 	func markInstalled(_ bundleID: String) {
@@ -238,6 +271,7 @@ final class QuickInstallManager: ObservableObject {
 	private var _installingKey: String?
 	private var _bundleIDs: [String: String] = [:]
 	private var _watchdog: Task<Void, Never>?
+	private var _promptObserver: NSObjectProtocol?
 	private var _fallbackTried: Set<String> = []
 	private var _queue: [(app: AppInfoPresentable, key: String)] = []
 	
@@ -526,6 +560,21 @@ final class QuickInstallManager: ObservableObject {
 								self._fallback(app, key: key, from: serverMethod)
 							}
 						}
+						// «إلغاء» on the iOS prompt: the app becomes active again and iOS never asks for
+						// the IPA. After «تثبيت» iOS requests it within moments, so 3 s of silence after
+						// returning means the prompt was canceled → reset quietly.
+						self._promptObserver.map { NotificationCenter.default.removeObserver($0) }
+						self._promptObserver = NotificationCenter.default.addObserver(
+							forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+						) { [weak self] _ in
+							Task { @MainActor [weak self] in
+								try? await Task.sleep(nanoseconds: 3_000_000_000)
+								guard let self, self._installingKey == key else { return }
+								if case .ready = viewModel.status {
+									self._resetQuietly(key)
+								}
+							}
+						}
 						// If iOS never fetches the app within 45 s, report it; the user taps again.
 						self._watchdog?.cancel()
 						self._watchdog = Task { @MainActor [weak self] in
@@ -533,7 +582,7 @@ final class QuickInstallManager: ObservableObject {
 							guard let self, !Task.isCancelled, self._installingKey == key else { return }
 							// iOS never fetched the app (usually «إلغاء» on the prompt): stop, no automatic retry.
 							if case .ready = viewModel.status {
-								self._fail(key, L("لم يكتمل التثبيت. يمكن المحاولة مجددًا."))
+								self._resetQuietly(key)
 							}
 						}
 					case .sendingPayload, .sendingManifest:
@@ -645,6 +694,8 @@ final class QuickInstallManager: ObservableObject {
 	private func _teardownInstall(startNext: Bool = true) {
 		_watchdog?.cancel()
 		_watchdog = nil
+		_promptObserver.map { NotificationCenter.default.removeObserver($0) }
+		_promptObserver = nil
 		ServerInstaller.methodOverride = nil
 		_progressTask?.cancel()
 		_progressTask = nil

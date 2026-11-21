@@ -80,7 +80,7 @@ struct SigningView: View {
 			.toolbar {
 				NBToolbarButton(role: .dismiss)
 				ToolbarItem(placement: .principal) {
-					Image("Glyph")
+					Image("LaunchPen")
 						.resizable()
 						.scaledToFit()
 						.frame(height: 38)

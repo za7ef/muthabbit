@@ -135,7 +135,10 @@ struct DownloadButtonView: View {
 					.frame(width: 31, height: 31)
 					.contentShape(Circle())
 					.onTapGesture {
-						if currentDownload.overallProgress <= 0.75 {
+						// Instant reset: clears the install state too, not only the download.
+						if quickInstall.state(for: _key) != nil {
+							quickInstall.cancel(_key)
+						} else if currentDownload.overallProgress <= 0.75 {
 							downloadManager.cancelDownload(currentDownload)
 						}
 					}
@@ -157,6 +160,8 @@ struct DownloadButtonView: View {
 					}
 				}
 				.frame(width: 31, height: 31)
+				.contentShape(Circle())
+				.onTapGesture { quickInstall.cancel(_key) }
 				.compatTransition()
 			} else if let id = app.id, quickInstall.installedIDs.contains(id), !_hasUpdate(id) {
 				Button {
