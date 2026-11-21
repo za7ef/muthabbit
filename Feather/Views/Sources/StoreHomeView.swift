@@ -19,6 +19,7 @@ struct StoreAppEntry: Identifiable {
 	let app: ASRepository.App
 	/// The same bundle id offered by other sources.
 	var others: [StoreAppEntry] = []
+	var featuredID: String { "featured." + id }
 }
 
 struct StoreHomeView: View {
@@ -86,7 +87,9 @@ struct StoreHomeView: View {
 						if let hero = _entries.first {
 							_heroCard(hero).padding(.bottom, 22)
 						}
-						ForEach(Array(_entries.dropFirst().prefix(2))) { entry in
+						// Distinct ids: the same apps also appear in the list below; sharing ids inside one
+						// LazyVStack made SwiftUI swap card/row views and leave gaps while scrolling.
+						ForEach(Array(_entries.dropFirst().prefix(2)), id: \.featuredID) { entry in
 							_featuredAppCard(entry).padding(.bottom, 22)
 						}
 					}
