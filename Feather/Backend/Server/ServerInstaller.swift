@@ -17,7 +17,10 @@ import IDeviceSwift
 // MARK: - Class
 class ServerInstaller: Identifiable, ObservableObject {
 	let id = UUID()
-	let port = Int.random(in: 4000...8000)
+	/// High, non-restricted port range (avoids WebKit/Chromium blocked ports like 4045, 5060, 6000, 6665-6669).
+	let port = Int.random(in: 50000...60000)
+	/// Muthabbit: temporary install-method override used by the automatic fallback.
+	nonisolated(unsafe) static var methodOverride: Int?
 	private var _needsShutdown = false
 	
 	var packageUrl: URL?
@@ -102,10 +105,11 @@ class ServerInstaller: Identifiable, ObservableObject {
 	}
 		
 	func getServerMethod() -> Int {
-		UserDefaults.standard.integer(forKey: "Feather.serverMethod")
+		Self.methodOverride ?? UserDefaults.standard.integer(forKey: "Feather.serverMethod")
 	}
 	
 	func getIPFix() -> Bool {
-		UserDefaults.standard.bool(forKey: "Feather.ipFix")
+		// Muthabbit: always use 127.0.0.1 (never the cellular/CGNAT address) unless explicitly turned off.
+		UserDefaults.standard.object(forKey: "Feather.ipFix") as? Bool ?? true
 	}
 }

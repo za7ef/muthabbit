@@ -46,6 +46,8 @@ final class QuickInstallManager: ObservableObject {
 	private weak var _safari: UIViewController?
 	private var _installingKey: String?
 	private var _bundleIDs: [String: String] = [:]
+	private var _watchdog: Task<Void, Never>?
+	private var _fallbackTried: Set<String> = []
 	private var _queue: [(app: AppInfoPresentable, key: String)] = []
 	
 	private var _observers: [NSObjectProtocol] = []
@@ -202,7 +204,7 @@ final class QuickInstallManager: ObservableObject {
 		}
 	}
 	
-	private func _install(_ app: AppInfoPresentable, key: String) {
+	private func _install(_ app: AppInfoPresentable, key: String, methodOverride: Int? = nil) {
 		if app.identifier == Bundle.main.bundleIdentifier {
 			states[key] = nil
 			UIAlertController.showAlertWithOk(
@@ -241,7 +243,8 @@ final class QuickInstallManager: ObservableObject {
 				return
 			}
 			
-			let serverMethod = UserDefaults.standard.integer(forKey: "Feather.serverMethod")
+			let serverMethod = methodOverride ?? UserDefaults.standard.integer(forKey: "Feather.serverMethod")
+			ServerInstaller.methodOverride = serverMethod
 			let bundleID = app.identifier ?? ""
 			
 			_statusCancellable = viewModel.$status
@@ -251,15 +254,28 @@ final class QuickInstallManager: ObservableObject {
 					switch status {
 					case .ready:
 						guard let installer = self._installer else { return }
-						if serverMethod == 0 {
-							if let url = URL(string: installer.iTunesLink) {
-								UIApplication.shared.open(url)
-							}
-						} else {
-							self._presentSafari(installer.pageEndpoint)
+						// No web page: open the itms-services link directly.
+						let link = serverMethod == 0 ? installer.iTunesLink : installer.iTunesLinkExternal
+						guard let url = URL(string: link) else {
+							self._fallback(app, key: key, from: serverMethod)
+							return
 						}
-					case .sendingPayload:
-						self._dismissSafari()
+						UIApplication.shared.open(url) { opened in
+							if !opened {
+								self._fallback(app, key: key, from: serverMethod)
+							}
+						}
+						// If iOS never fetches the app, switch to the other method automatically.
+						self._watchdog?.cancel()
+						self._watchdog = Task { @MainActor [weak self] in
+							try? await Task.sleep(nanoseconds: 45_000_000_000)
+							guard let self, !Task.isCancelled, self._installingKey == key else { return }
+							if case .ready = viewModel.status {
+								self._fallback(app, key: key, from: serverMethod)
+							}
+						}
+					case .sendingPayload, .sendingManifest:
+						self._watchdog?.cancel()
 					case .installing:
 						if self._progressTask == nil, !bundleID.isEmpty {
 							self._progressTask = self._pollInstall(bundleID: bundleID, viewModel: viewModel)
@@ -304,10 +320,22 @@ final class QuickInstallManager: ObservableObject {
 		#endif
 	}
 	
+	/// Tries the other server method once (Semi Local ⇄ Local) before reporting failure.
+	private func _fallback(_ app: AppInfoPresentable, key: String, from method: Int) {
+		guard !_fallbackTried.contains(key) else {
+			_fail(key, "تعذّر بدء التثبيت بالطريقتين. يمكن تغيير طريقة التثبيت من الإعدادات.")
+			return
+		}
+		_fallbackTried.insert(key)
+		_teardownInstall(startNext: false)
+		_install(app, key: key, methodOverride: method == 0 ? 1 : 0)
+	}
+	
 	// MARK: Completion
 	
 	private func _finish(_ key: String) {
 		states[key] = nil
+		_fallbackTried.remove(key)
 		if _installingKey == key {
 			_teardownInstall()
 		}
@@ -326,6 +354,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _fail(_ key: String, _ message: String) {
 		states[key] = .failed(message)
+		_fallbackTried.remove(key)
 		if _installingKey == key {
 			_teardownInstall()
 		}
@@ -335,7 +364,10 @@ final class QuickInstallManager: ObservableObject {
 		)
 	}
 	
-	private func _teardownInstall() {
+	private func _teardownInstall(startNext: Bool = true) {
+		_watchdog?.cancel()
+		_watchdog = nil
+		ServerInstaller.methodOverride = nil
 		_progressTask?.cancel()
 		_progressTask = nil
 		_statusCancellable?.cancel()
@@ -348,7 +380,7 @@ final class QuickInstallManager: ObservableObject {
 		BackgroundAudioManager.shared.stop()
 		#endif
 		
-		if !_queue.isEmpty {
+		if startNext, !_queue.isEmpty {
 			let next = _queue.removeFirst()
 			DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
 				self._install(next.app, key: next.key)
