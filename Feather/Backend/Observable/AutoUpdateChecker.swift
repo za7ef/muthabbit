@@ -40,10 +40,16 @@ enum AutoUpdateChecker {
 		let context = Storage.shared.context
 		let signedRequest: NSFetchRequest<Signed> = Signed.fetchRequest()
 		let importedRequest: NSFetchRequest<Imported> = Imported.fetchRequest()
-		let signed = (try? context.fetch(signedRequest)) ?? []
-		let imported = (try? context.fetch(importedRequest)) ?? []
-		let localApps: [AppInfoPresentable] =
-			signed.map { $0 as AppInfoPresentable } + imported.map { $0 as AppInfoPresentable }
+		_ = importedRequest
+		signedRequest.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
+		let installed = QuickInstallManager.shared.installedIDs
+		var seen = Set<String>()
+		// Only confirmed installs (newest copy per bundle id) are checked for updates.
+		let localApps: [AppInfoPresentable] = ((try? context.fetch(signedRequest)) ?? []).filter { app in
+			guard let id = app.identifier, installed.contains(id), !seen.contains(id) else { return false }
+			seen.insert(id)
+			return true
+		}
 		
 		guard !localApps.isEmpty else { return }
 		

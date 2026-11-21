@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import NukeUI
 import NimbleExtensions
 import NimbleViews
 
@@ -137,7 +138,9 @@ struct LibraryCellView: View {
 // MARK: - Extension: View
 extension LibraryCellView {
 	private func _appIcon(for app: AppInfoPresentable) -> some View {
-		FRAppIconView(app: app, size: 57)
+		StoreIconOverride(bundleID: app.identifier) {
+			FRAppIconView(app: app, size: 57)
+		}
 			.overlay(alignment: .topTrailing) {
 				if updateManager.update(for: app) != nil {
 					Image(systemName: "arrow.down.circle.fill")
@@ -211,24 +214,17 @@ extension LibraryCellView {
 			{
 				ProgressView()
 					.frame(minWidth: 44)
-			} else if let update = updateManager.update(for: app) {
-				Button {
-					quickInstall.installUpdate(update)
-				} label: {
-					FRExpirationPillView(
-						title: .localized("Update"),
-						revoked: false,
-						expiration: nil
-					)
-				}
+			} else if updateManager.update(for: app) != nil {
+				// The update button lives in the "التحديثات المتوفرة" section above.
+				EmptyView()
 			} else {
 				Button {
 					quickInstall.installExisting(app)
 				} label: {
 					FRExpirationPillView(
 						title: .localized("Install"),
-						revoked: app.isSigned ? certRevoked : false,
-						expiration: app.isSigned ? certInfo : nil
+						revoked: false,
+						expiration: nil
 					)
 				}
 			}
@@ -242,5 +238,36 @@ extension LibraryCellView {
 			id: "FeatherManualDownload_Update_\(update.localUUID)",
 			sourceProvenance: update.sourceProvenance
 		)
+	}
+}
+
+
+/// Shows the source's iconURL when the app is listed in a source; falls back to the bundle icon.
+struct StoreIconOverride<Fallback: View>: View {
+	let bundleID: String?
+	@ViewBuilder let fallback: () -> Fallback
+	@ObservedObject private var _sources = SourcesViewModel.shared
+	@ObservedObject private var _github = GitHubAccount.shared
+	
+	private var _iconURL: URL? {
+		guard let bundleID else { return nil }
+		for repo in _sources.sources.values {
+			if let app = repo.apps.first(where: { $0.id == bundleID }), let url = app.iconURL { return url }
+		}
+		return _github.projects?.apps.first(where: { $0.id == bundleID })?.iconURL
+	}
+	
+	var body: some View {
+		if let url = _iconURL {
+			LazyImage(url: url) { state in
+				if let image = state.image {
+					image.appIconStyle(size: 57, isCircle: false)
+				} else {
+					fallback()
+				}
+			}
+		} else {
+			fallback()
+		}
 	}
 }

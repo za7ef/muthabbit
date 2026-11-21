@@ -163,6 +163,11 @@ final class UpdateManager: ObservableObject {
 				continue
 			}
 			
+			// For this app itself, the running binary is the truth (not the stored record).
+			let effectiveVersion: String? = localApp.identifier == Bundle.main.bundleIdentifier
+				? AppInfo.marketingVersion + " (" + AppInfo.buildNumber + ")"
+				: sourceAppVersion
+			
 			for (sourceURL, repository) in repositories {
 
 				
@@ -184,7 +189,7 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				guard !_isSameVersion(remote: remoteVersion, stored: sourceAppVersion) else {
+				guard !_isSameVersion(remote: remoteVersion, stored: effectiveVersion) else {
 					continue
 				}
 				
@@ -203,7 +208,7 @@ final class UpdateManager: ObservableObject {
 				foundUpdates[localUUID] = AppUpdate(
 					id: localUUID,
 					localUUID: localUUID,
-					localVersion: sourceAppVersion ?? localApp.version,
+					localVersion: effectiveVersion ?? localApp.version,
 					remoteVersion: remoteVersion,
 					appName: remoteApp.currentName,
 					bundleIdentifier: sourceAppIdentifier,

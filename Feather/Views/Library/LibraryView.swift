@@ -42,8 +42,14 @@ struct LibraryView: View {
 		}
 	}
 	
+	/// Only apps with a confirmed install, newest copy per bundle id.
 	private var _filteredSignedApps: [Signed] {
-		filteredAndSortedApps(from: _signedApps)
+		var seen = Set<String>()
+		return filteredAndSortedApps(from: _signedApps).filter { app in
+			guard let id = app.identifier, _quickInstall.installedIDs.contains(id), !seen.contains(id) else { return false }
+			seen.insert(id)
+			return true
+		}
 	}
 	
 	private var _filteredImportedApps: [Imported] {
@@ -80,7 +86,7 @@ struct LibraryView: View {
 								VStack(alignment: .leading, spacing: 2) {
 									Text(update.appName)
 										.font(.headline)
-									Text("\(update.localVersion ?? "—") ← \(update.remoteVersion)")
+									Text("\u{2066}\(update.localVersion ?? "—") → \(update.remoteVersion)\u{2069}")
 										.font(.footnote)
 										.foregroundStyle(.secondary)
 								}
@@ -124,7 +130,7 @@ struct LibraryView: View {
 					_selectedScope == .all || _selectedScope == .signed
 				{
 					NBSection(
-						.localized("Signed"),
+						"التطبيقات المثبّتة",
 						secondary: _filteredSignedApps.count.description
 					) {
 						ForEach(_filteredSignedApps, id: \.uuid) { app in
@@ -141,8 +147,8 @@ struct LibraryView: View {
 				}
 				
 				if
-					!_filteredImportedApps.isEmpty,
-					_selectedScope == .all || _selectedScope == .imported
+					false,
+					!_filteredImportedApps.isEmpty
 				{
 					NBSection(
 						.localized("Imported"),
@@ -162,28 +168,16 @@ struct LibraryView: View {
 				}
 			}
 			.searchable(text: $_searchText, placement: .platform())
-			.compatSearchScopes($_selectedScope) {
-				ForEach(Scope.allCases, id: \.displayName) { scope in
-					Text(scope.displayName).tag(scope)
-				}
-			}
 			.scrollDismissesKeyboard(.interactively)
 			.overlay {
 				if
-					_filteredSignedApps.isEmpty,
-					_filteredImportedApps.isEmpty
+					_filteredSignedApps.isEmpty
 				{
 					if #available(iOS 17, *) {
 						ContentUnavailableView {
-							Label(.localized("No Apps"), systemImage: "questionmark.app.fill")
+							Label("لا توجد تطبيقات مثبّتة", systemImage: "square.grid.2x2")
 						} description: {
-							Text(.localized("Get started by importing your first IPA file."))
-						} actions: {
-							Menu {
-								_importActions()
-							} label: {
-								NBButton(.localized("Import"), style: .text)
-							}
+							Text("تظهر هنا التطبيقات المثبّتة من «المتجر» أو «مشاريعي».")
 						}
 					}
 				}

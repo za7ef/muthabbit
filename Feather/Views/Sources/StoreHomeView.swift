@@ -230,7 +230,7 @@ struct StoreHomeView: View {
 							.lineLimit(1)
 					}
 					Spacer()
-					DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+					Color.clear.frame(width: 90, height: 1)
 				}
 				.padding(16)
 			}
@@ -238,11 +238,17 @@ struct StoreHomeView: View {
 			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
 		}
 		.buttonStyle(.plain)
+		// Install button sits outside the card link so a card tap or scroll never starts an install.
+		.overlay(alignment: .bottomTrailing) {
+			DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+				.padding(16)
+		}
 		.padding(.horizontal, 20)
 	}
 	
 	@ViewBuilder
 	private func _row(_ entry: StoreAppEntry) -> some View {
+		HStack(spacing: 8) {
 		NavigationLink {
 			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
 		} label: {
@@ -259,12 +265,13 @@ struct StoreHomeView: View {
 						.lineLimit(2)
 				}
 				Spacer()
-				DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
 			}
 			.padding(.vertical, 10)
 			.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
+		DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+		}
 	}
 	
 	@ViewBuilder
