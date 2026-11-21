@@ -403,9 +403,20 @@ struct StoreHomeView: View {
 				clean = String(clean.dropFirst()).trimmingCharacters(in: .whitespaces)
 			}
 			clean = clean.replacingOccurrences(of: "**", with: "")
-			if clean.count >= 12 { return clean }
+			if clean.count >= 12 { return _isDuplicate(clean, of: app.subtitle) ? nil : clean }
 		}
 		return nil
+	}
+	
+	/// True when the description only repeats the subtitle (e.g. "GitHub project request: …").
+	private func _isDuplicate(_ text: String, of subtitle: String?) -> Bool {
+		guard let subtitle else { return false }
+		func norm(_ s: String) -> String {
+			s.lowercased().filter { $0.isLetter || $0.isNumber }
+		}
+		let a = norm(text), b = norm(subtitle)
+		guard !a.isEmpty, !b.isEmpty else { return false }
+		return a == b || a.hasPrefix(b) || b.hasPrefix(a)
 	}
 	
 	/// "1.5 · 21 نوفمبر · 22.4 م.ب" (only the parts that are known).
@@ -437,11 +448,12 @@ struct StoreHomeView: View {
 		.buttonStyle(.plain)
 	}
 	
-	/// Style 1 – «مختارات المصدر»: tall poster card (screenshot if the source has one).
+	/// Style 1 – «مختارات المصدر»: screenshot on top, details in a solid panel below
+	/// (text never sits on the screenshot, so light screenshots stay readable).
 	@ViewBuilder
 	private func _sourcePickCard(_ entry: StoreAppEntry) -> some View {
-		_detailLink(entry) {
-			ZStack(alignment: .bottomLeading) {
+		VStack(alignment: .leading, spacing: 0) {
+			_detailLink(entry) {
 				Group {
 					if let shot = entry.app.screenshotURLs?.first {
 						LazyImage(request: ImageRequest(url: shot, processors: [
@@ -456,42 +468,43 @@ struct StoreHomeView: View {
 					} else {
 						ZStack {
 							_blurredBackdrop(entry.app.iconURL)
-							_icon(entry.app.iconURL, size: 110).offset(y: -40)
+							_icon(entry.app.iconURL, size: 96)
 						}
 					}
 				}
-				.frame(height: 300)
+				.frame(height: 190)
 				.frame(maxWidth: .infinity)
 				.clipped()
-				
-				LinearGradient(
-					stops: [.init(color: .clear, location: 0.3), .init(color: .black.opacity(0.8), location: 1)],
-					startPoint: .top, endPoint: .bottom
-				)
-				
-				VStack(alignment: .leading, spacing: 6) {
-					_cardLabel(L("مختارات المصدر"), systemImage: "star.fill", color: .yellow)
-					HStack(spacing: 10) {
-						_icon(entry.app.iconURL, size: 44)
-						VStack(alignment: .leading, spacing: 1) {
-							Text(entry.app.currentName).font(.title3.bold()).foregroundStyle(.white).lineLimit(1)
-							Text(entry.app.subtitle ?? entry.source.name ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
-						}
-					}
-					if let desc = _shortDescription(entry.app) {
-						Text(desc).font(.footnote).foregroundStyle(.white.opacity(0.85)).lineLimit(2)
-					}
-					Text(_meta(entry.app)).font(.caption).foregroundStyle(.white.opacity(0.7))
-						.padding(.trailing, 96)
-				}
-				.padding(16)
+				.contentShape(Rectangle())
 			}
-			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+			
+			VStack(alignment: .leading, spacing: 10) {
+				_cardLabel(L("مختارات المصدر"), systemImage: "star.fill", color: .yellow)
+				HStack(spacing: 12) {
+					_detailLink(entry) {
+						HStack(spacing: 12) {
+							_icon(entry.app.iconURL, size: 52)
+							VStack(alignment: .leading, spacing: 2) {
+								Text(entry.app.currentName).font(.title3.bold()).lineLimit(1)
+								Text(entry.app.subtitle ?? entry.source.name ?? "")
+									.font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+							}
+							Spacer(minLength: 0)
+						}
+						.contentShape(Rectangle())
+					}
+					DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+				}
+				if let desc = _shortDescription(entry.app) {
+					Text(desc).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+				}
+				Text(_meta(entry.app)).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+			}
+			.padding(16)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(Color(.secondarySystemBackground))
 		}
-		.overlay(alignment: .bottomTrailing) {
-			DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
-				.padding(16)
-		}
+		.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
 		.padding(.horizontal, 20)
 	}
 	

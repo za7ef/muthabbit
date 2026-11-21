@@ -11,7 +11,19 @@
 
 import SwiftUI
 
+/// Shows the text in the app language when it can be translated on the device.
 struct ExpandableText: View {
+	let text: String
+	let lineLimit: Int
+	
+	var body: some View {
+		TranslatableText(text: text) { shown in
+			_ExpandableCore(text: shown, lineLimit: lineLimit)
+		}
+	}
+}
+
+private struct _ExpandableCore: View {
 	let text: String
 	let lineLimit: Int
 

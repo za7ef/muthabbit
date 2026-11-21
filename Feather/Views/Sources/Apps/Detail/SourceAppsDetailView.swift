@@ -83,9 +83,11 @@ struct SourceAppsDetailView: View {
 							.font(.title2)
 							.fontWeight(.semibold)
 							.foregroundColor(.primary)
-						Text(app.subtitle ?? app.developer ?? source.name ?? "")
-							.font(.subheadline)
-							.foregroundColor(.secondary)
+						TranslatableText(text: app.subtitle ?? app.developer ?? source.name ?? "", compact: true) { shown in
+							Text(shown)
+								.font(.subheadline)
+								.foregroundColor(.secondary)
+						}
 						
 						Spacer()
 						
