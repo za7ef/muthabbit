@@ -1,0 +1,153 @@
+//
+//  SelfUpdateManager.swift
+//  Muthabbit
+//
+//  Checks the latest GitHub release of the app itself and offers the update.
+//
+
+import Foundation
+import UIKit
+
+enum AppInfo {
+	static let displayName = "مُثبِّت"
+	static let repository = "za7ef/muthabbit"
+	static let repositoryURL = URL(string: "https://github.com/za7ef/muthabbit")!
+	static let developerURL = URL(string: "https://github.com/za7ef")!
+	static let defaultSourceURL = "https://raw.githubusercontent.com/za7ef/apps-source/main/source.json"
+	
+	static var marketingVersion: String {
+		Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+	}
+	
+	static var buildNumber: String {
+		Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+	}
+	
+	/// e.g. "1.0.0 (12)"
+	static var fullVersion: String {
+		"\(marketingVersion) (\(buildNumber))"
+	}
+}
+
+struct SelfUpdateInfo: Equatable {
+	let version: String
+	let build: Int
+	let notes: String
+	let ipaURL: URL?
+	let pageURL: URL
+}
+
+@MainActor
+final class SelfUpdateManager {
+	static let shared = SelfUpdateManager()
+	
+	private var _didCheckThisLaunch = false
+	private let _skipKey = "muthabbit.selfUpdate.dismissedTag"
+	
+	private init() {}
+	
+	/// Checks once per launch. Silent on any network or parsing failure.
+	func checkOnLaunch() {
+		guard !_didCheckThisLaunch else { return }
+		_didCheckThisLaunch = true
+		
+		Task {
+			guard let info = await _fetchLatest() else { return }
+			guard Self.isNewer(remoteVersion: info.version, remoteBuild: info.build) else { return }
+			
+			let tagKey = "\(info.version)-\(info.build)"
+			if UserDefaults.standard.string(forKey: _skipKey) == tagKey { return }
+			
+			_present(info, tagKey: tagKey)
+		}
+	}
+	
+	static func isNewer(remoteVersion: String, remoteBuild: Int) -> Bool {
+		let order = remoteVersion.compare(AppInfo.marketingVersion, options: .numeric)
+		if order == .orderedDescending { return true }
+		if order == .orderedAscending { return false }
+		let localBuild = Int(AppInfo.buildNumber) ?? 0
+		return remoteBuild > localBuild
+	}
+	
+	// MARK: Network
+	
+	private struct Release: Decodable {
+		struct Asset: Decodable {
+			let name: String
+			let browser_download_url: URL
+		}
+		let tag_name: String
+		let body: String?
+		let html_url: URL
+		let draft: Bool?
+		let prerelease: Bool?
+		let assets: [Asset]
+	}
+	
+	private func _fetchLatest() async -> SelfUpdateInfo? {
+		guard let url = URL(string: "https://api.github.com/repos/\(AppInfo.repository)/releases/latest") else {
+			return nil
+		}
+		
+		var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+		
+		do {
+			let (data, response) = try await URLSession.shared.data(for: request)
+			guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+			let release = try JSONDecoder().decode(Release.self, from: data)
+			guard let parsed = Self.parseTag(release.tag_name) else { return nil }
+			
+			let ipa = release.assets.first(where: { $0.name.lowercased().hasSuffix(".ipa") })?.browser_download_url
+			return SelfUpdateInfo(
+				version: parsed.version,
+				build: parsed.build,
+				notes: (release.body ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+				ipaURL: ipa,
+				pageURL: release.html_url
+			)
+		} catch {
+			return nil
+		}
+	}
+	
+	/// Tag format: "v1.0.0-b12" → ("1.0.0", 12)
+	static func parseTag(_ tag: String) -> (version: String, build: Int)? {
+		var value = tag
+		if value.hasPrefix("v") { value.removeFirst() }
+		let parts = value.components(separatedBy: "-b")
+		guard
+			parts.count == 2,
+			!parts[0].isEmpty,
+			let build = Int(parts[1])
+		else {
+			return nil
+		}
+		return (parts[0], build)
+	}
+	
+	// MARK: UI
+	
+	private func _present(_ info: SelfUpdateInfo, tagKey: String) {
+		var message = "الإصدار \(info.version) (\(info.build))"
+		if !info.notes.isEmpty {
+			message += "\n\nما الجديد:\n" + String(info.notes.prefix(600))
+		}
+		
+		let later = UIAlertAction(title: "لاحقًا", style: .cancel) { [weak self] _ in
+			guard let self else { return }
+			UserDefaults.standard.set(tagKey, forKey: self._skipKey)
+		}
+		// The app cannot replace itself while running; the release page offers the new IPA.
+		let update = UIAlertAction(title: "تحديث", style: .default) { _ in
+			UIApplication.shared.open(info.pageURL)
+		}
+		
+		UIAlertController.showAlert(
+			title: "تحديث جديد متوفر",
+			message: message,
+			actions: [later, update]
+		)
+	}
+}
