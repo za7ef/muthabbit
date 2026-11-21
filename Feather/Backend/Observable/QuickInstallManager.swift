@@ -422,13 +422,14 @@ final class QuickInstallManager: ObservableObject {
 								self._fallback(app, key: key, from: serverMethod)
 							}
 						}
-						// If iOS never fetches the app, switch to the other method automatically.
+						// If iOS never fetches the app within 45 s, report it; the user taps again.
 						self._watchdog?.cancel()
 						self._watchdog = Task { @MainActor [weak self] in
 							try? await Task.sleep(nanoseconds: 45_000_000_000)
 							guard let self, !Task.isCancelled, self._installingKey == key else { return }
+							// iOS never fetched the app (usually «إلغاء» on the prompt): stop, no automatic retry.
 							if case .ready = viewModel.status {
-								self._fallback(app, key: key, from: serverMethod)
+								self._fail(key, "لم يكتمل التثبيت. يمكن المحاولة مجددًا.")
 							}
 						}
 					case .sendingPayload, .sendingManifest:
