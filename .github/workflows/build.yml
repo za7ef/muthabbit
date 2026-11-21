@@ -27,6 +27,21 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
+      - name: Next version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # كل بناء برقم إصدار جديد: 1.1 ثم 1.2 ثم 1.3 ...
+          BASE=$(grep '^FEATHER_PROJECT_VERSION=' Feather.xcconfig | cut -d= -f2)
+          LAST=$(gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName -q '.[].tagName' | grep -E '^v[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -1)
+          if [ -z "$LAST" ] || [ "$(printf '%s\n%s\n' "$LAST" "$BASE" | sort -V | tail -1)" = "$BASE" ] && [ "$BASE" != "$LAST" ]; then
+            NEXT="$BASE"
+          else
+            NEXT="${LAST%.*}.$(( ${LAST##*.} + 1 ))"
+          fi
+          echo "Next version: $NEXT (last $LAST, file $BASE)"
+          sed -i '' "s/^FEATHER_PROJECT_VERSION=.*/FEATHER_PROJECT_VERSION=$NEXT/" Feather.xcconfig
+
       - name: Build
         run: |
           set -o pipefail
@@ -56,7 +71,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.VERSION }}-b${{ env.BUILD }}
+          tag_name: v${{ env.VERSION }}
           name: مُثبِّت ${{ env.VERSION }} (البناء ${{ env.BUILD }})
           body_path: RELEASE_NOTES.md
           files: packages/Muthabbit.ipa
