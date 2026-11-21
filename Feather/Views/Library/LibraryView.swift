@@ -27,62 +27,89 @@ struct LibraryView: View {
 		animation: .snappy
 	) private var _signedApps: FetchedResults<Signed>
 	
-	/// Confirmed installs, one per bundle id (newest copy).
-	private var _installed: [Signed] {
-		var seen = Set<String>()
-		return _signedApps.filter { app in
-			guard
-				let id = app.identifier,
-				_quickInstall.installedIDs.contains(id),
-				!seen.contains(id)
-			else { return false }
-			seen.insert(id)
-			if _searchText.isEmpty { return true }
-			return (app.name ?? "").localizedCaseInsensitiveContains(_searchText)
-		}
+	/// One history entry: the install record, plus its newest signed copy when one is still stored.
+	struct Item: Identifiable {
+		let record: InstallRecord
+		let signed: Signed?
+		var id: String { record.id }
 	}
 	
-	private func _key(_ app: Signed) -> String {
-		_updateManager.update(for: app)?.bundleIdentifier ?? app.identifier ?? app.uuid ?? ""
+	/// Confirmed installs from the install history (not from stored signed copies, which can be
+	/// deleted independently). This app itself is not listed.
+	private var _installed: [Item] {
+		var newest: [String: Signed] = [:]
+		for app in _signedApps {
+			if let id = app.identifier, newest[id] == nil { newest[id] = app }
+		}
+		return _quickInstall.records.values
+			.filter { $0.id != QuickInstallManager.ownBundleID }
+			.map { Item(record: $0, signed: newest[$0.id]) }
+			.filter { _searchText.isEmpty || _name($0).localizedCaseInsensitiveContains(_searchText) }
+			.sorted { _name($0).localizedCompare(_name($1)) == .orderedAscending }
+	}
+	
+	private func _name(_ item: Item) -> String {
+		item.record.name ?? item.signed?.name ?? _storeEntry(item.id)?.2.currentName ?? item.id
+	}
+	
+	private func _update(_ item: Item) -> AppUpdate? {
+		item.signed.flatMap { _updateManager.update(for: $0) }
+	}
+	
+	private func _key(_ item: Item) -> String {
+		_update(item)?.bundleIdentifier ?? item.id
 	}
 	
 	/// Stays in the top section while updating or just finished, so it can turn green before moving.
-	private func _isInUpdatesSection(_ app: Signed) -> Bool {
-		let key = _key(app)
-		return _updateManager.update(for: app) != nil
+	private func _isInUpdatesSection(_ item: Item) -> Bool {
+		let key = _key(item)
+		return _update(item) != nil
 			|| _quickInstall.justFinished.contains(key)
 			|| (_quickInstall.state(for: key).map { !$0.isFailed } ?? false)
 	}
 	
-	private var _withUpdates: [Signed] { _installed.filter { _isInUpdatesSection($0) } }
-	private var _upToDate: [Signed] { _installed.filter { !_isInUpdatesSection($0) } }
+	private var _withUpdates: [Item] { _installed.filter { _isInUpdatesSection($0) } }
+	private var _upToDate: [Item] { _installed.filter { !_isInUpdatesSection($0) } }
+	
+	private func _removeFromHistory(_ item: Item) {
+		withAnimation(.snappy) {
+			_quickInstall.unmarkInstalled(item.id)
+			UpdateManager.shared.clearUpdate(bundleID: item.id)
+		}
+	}
 	
 	var body: some View {
 		NBNavigationView(L("تطبيقاتي")) {
-			ScrollView {
-				VStack(alignment: .leading, spacing: 14) {
-					_banner
-					
-					if !_withUpdates.isEmpty {
-						_header(L("التحديثات المتوفرة"))
-						ForEach(_withUpdates, id: \.objectID) { app in
-							_card(app)
-								.transition(.move(edge: .bottom).combined(with: .opacity))
-						}
-					}
-					
-					if !_upToDate.isEmpty {
-						_header(L("التطبيقات المثبّتة"))
-						ForEach(_upToDate, id: \.objectID) { app in
-							_card(app)
-								.transition(.move(edge: .top).combined(with: .opacity))
-						}
+			// A plain List (styled like cards) so every entry supports swipe to delete.
+			List {
+				_banner
+					.listRowSeparator(.hidden)
+					.listRowBackground(Color.clear)
+					.listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 7, trailing: 20))
+				
+				if !_withUpdates.isEmpty {
+					_header(L("التحديثات المتوفرة"))
+						.listRowSeparator(.hidden)
+						.listRowBackground(Color.clear)
+						.listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 20))
+					ForEach(_withUpdates) { item in
+						_row(item)
 					}
 				}
-				.padding(.horizontal, 20)
-				.padding(.bottom, 24)
-				.animation(.snappy, value: _withUpdates.map(\.objectID))
+				
+				if !_upToDate.isEmpty {
+					_header(L("التطبيقات المثبّتة"))
+						.listRowSeparator(.hidden)
+						.listRowBackground(Color.clear)
+						.listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 20))
+					ForEach(_upToDate) { item in
+						_row(item)
+					}
+				}
 			}
+			.listStyle(.plain)
+			.scrollContentBackground(.hidden)
+			.animation(.snappy, value: _withUpdates.map(\.id))
 			.searchable(text: $_searchText, placement: .platform())
 			.overlay {
 				if _installed.isEmpty, _searchText.isEmpty, #available(iOS 17, *) {
@@ -164,19 +191,37 @@ struct LibraryView: View {
 	
 	// MARK: Card
 	
+	private func _row(_ item: Item) -> some View {
+		_card(item)
+			.listRowSeparator(.hidden)
+			.listRowBackground(Color.clear)
+			.listRowInsets(EdgeInsets(top: 7, leading: 20, bottom: 7, trailing: 20))
+			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+				Button(role: .destructive) {
+					_removeFromHistory(item)
+				} label: {
+					Label(L("حذف من السجل"), systemImage: "trash")
+				}
+			}
+	}
+	
 	@ViewBuilder
-	private func _card(_ app: Signed) -> some View {
+	private func _card(_ item: Item) -> some View {
 		HStack(spacing: 14) {
 			let info = HStack(spacing: 14) {
-				StoreIconOverride(bundleID: app.identifier) {
-					FRAppIconView(app: app, size: 57)
+				StoreIconOverride(bundleID: item.id) {
+					if let signed = item.signed {
+						FRAppIconView(app: signed, size: 57)
+					} else {
+						Image("App_Unknown").appIconStyle(size: 57, isCircle: false)
+					}
 				}
 				VStack(alignment: .leading, spacing: 3) {
-					Text(app.name ?? .localized("Unknown"))
+					Text(_name(item))
 						.font(.headline)
 						.foregroundStyle(.primary)
 						.lineLimit(1)
-					Text(_subtitle(app))
+					Text(_subtitle(item))
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 						.lineLimit(1)
@@ -184,7 +229,7 @@ struct LibraryView: View {
 				Spacer(minLength: 8)
 			}
 			.contentShape(Rectangle())
-			if let entry = _storeEntry(app.identifier) {
+			if let entry = _storeEntry(item.id) {
 				NavigationLink {
 					SourceAppsDetailView(sourceURL: entry.0, source: entry.1, app: entry.2)
 				} label: { info }
@@ -192,7 +237,7 @@ struct LibraryView: View {
 			} else {
 				info
 			}
-			_pill(app)
+			_pill(item)
 		}
 		.padding(14)
 		.background(
@@ -200,13 +245,16 @@ struct LibraryView: View {
 				.fill(Color(.secondarySystemBackground))
 		)
 		.contextMenu {
-			if let id = app.identifier {
-				Button(L("فتح"), systemImage: "arrow.up.forward.app") {
-					UIApplication.openApp(with: id)
-				}
+			Button(L("فتح"), systemImage: "arrow.up.forward.app") {
+				UIApplication.openApp(with: item.id)
 			}
-			Button(L("حذف"), systemImage: "trash", role: .destructive) {
-				LibraryDeleteHelper.confirmDelete([app])
+			Button(L("حذف من السجل"), systemImage: "trash", role: .destructive) {
+				_removeFromHistory(item)
+			}
+			if let signed = item.signed {
+				Button(L("حذف الملفات"), systemImage: "doc.badge.ellipsis") {
+					LibraryDeleteHelper.confirmDelete([signed])
+				}
 			}
 		}
 	}
@@ -223,17 +271,18 @@ struct LibraryView: View {
 		return nil
 	}
 	
-	private func _subtitle(_ app: Signed) -> String {
-		if let update = _updateManager.update(for: app) {
+	private func _subtitle(_ item: Item) -> String {
+		let version = item.record.version ?? item.signed?.version
+		if let update = _update(item) {
 			// Isolated LTR run so "old → new" reads correctly inside RTL text.
-			return "\u{2066}\(update.localVersion ?? app.version ?? "—") → \(update.remoteVersion)\u{2069}"
+			return "\u{2066}\(update.localVersion ?? version ?? "—") → \(update.remoteVersion)\u{2069}"
 		}
-		return app.version ?? (app.identifier ?? "")
+		return version ?? item.id
 	}
 	
 	@ViewBuilder
-	private func _pill(_ app: Signed) -> some View {
-		let key = _key(app)
+	private func _pill(_ item: Item) -> some View {
+		let key = _key(item)
 		if _quickInstall.justFinished.contains(key) {
 			ProgressPill(title: L("مثبّت"), color: .green, progress: 1, filled: true)
 		} else if let state = _quickInstall.state(for: key), !state.isFailed {
@@ -246,7 +295,7 @@ struct LibraryView: View {
 				)
 			}
 			.onTapGesture { _quickInstall.cancel(key) }
-		} else if let update = _updateManager.update(for: app) {
+		} else if let update = _update(item) {
 			Button {
 				_quickInstall.installUpdate(update)
 			} label: {
@@ -255,7 +304,7 @@ struct LibraryView: View {
 			.buttonStyle(.plain)
 		} else {
 			Button {
-				if let id = app.identifier { UIApplication.openApp(with: id) }
+				UIApplication.openApp(with: item.id)
 			} label: {
 				ProgressPill(title: L("فتح"), color: .accentColor, progress: 0, filled: false)
 			}

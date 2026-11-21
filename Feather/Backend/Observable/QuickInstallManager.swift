@@ -43,8 +43,13 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// Keyed by the app bundle identifier (or the download id when unknown).
 	@Published private(set) var states: [String: QuickInstallState] = [:]
-	/// Bundle ids with a confirmed successful install (the "تطبيقاتي" list).
-	@Published private(set) var installedIDs: Set<String> = QuickInstallManager._loadInstalled()
+	/// Confirmed installs (the "تطبيقاتي" list), keyed by bundle id. Each record keeps its own
+	/// name/version/icon, so it does not depend on a signed copy still being stored.
+	@Published private(set) var records: [String: InstallRecord] = QuickInstallManager._loadInstalled()
+	/// Bundle ids with a confirmed successful install.
+	var installedIDs: Set<String> { Set(records.keys) }
+	/// This app itself is never listed in its own history.
+	nonisolated static var ownBundleID: String { Bundle.main.bundleIdentifier ?? "" }
 	
 	/// Install history lives in Application Support (kept across app updates, never in Caches/tmp),
 	/// mirrored to UserDefaults; both are merged on load so neither copy can wipe the other.
@@ -55,23 +60,62 @@ final class QuickInstallManager: ObservableObject {
 		return dir.appendingPathComponent("installed-apps.json")
 	}
 	
-	private static func _loadInstalled() -> Set<String> {
-		var ids = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
-		if
-			let data = try? Data(contentsOf: _recordsURL),
-			let fromFile = try? JSONDecoder().decode([String].self, from: data)
-		{
-			ids.formUnion(fromFile)
+	private static var _recordsV2URL: URL {
+		_recordsURL.deletingLastPathComponent().appendingPathComponent("installed-apps-v2.json")
+	}
+	private static let _recordsV2Key = "Muthabbit.installRecords"
+	
+	/// Loads v2 records (file + UserDefaults mirror, merged) and migrates the old id-only lists.
+	private static func _loadInstalled() -> [String: InstallRecord] {
+		var result: [String: InstallRecord] = [:]
+		func merge(_ list: [InstallRecord]) {
+			for r in list {
+				if let existing = result[r.id], (existing.date ?? .distantPast) >= (r.date ?? .distantPast) { continue }
+				result[r.id] = r
+			}
 		}
-		return ids
+		if let data = try? Data(contentsOf: _recordsV2URL), let list = try? JSONDecoder().decode([InstallRecord].self, from: data) {
+			merge(list)
+		}
+		if let data = UserDefaults.standard.data(forKey: _recordsV2Key), let list = try? JSONDecoder().decode([InstallRecord].self, from: data) {
+			merge(list)
+		}
+		// Old format (1.5 and earlier): bundle ids only. Only migrated once, while no v2 data exists,
+		// so a record removed later never comes back from the old lists.
+		if !UserDefaults.standard.bool(forKey: "Muthabbit.installRecordsMigrated") {
+			var legacy = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
+			if let data = try? Data(contentsOf: _recordsURL), let ids = try? JSONDecoder().decode([String].self, from: data) {
+				legacy.formUnion(ids)
+			}
+			for id in legacy where result[id] == nil {
+				result[id] = InstallRecord(id: id, name: nil, version: nil, iconURL: nil, date: nil)
+			}
+			result[ownBundleID] = nil
+			// Write the migrated records right away, before marking the migration as done.
+			if let data = try? JSONEncoder().encode(result.values.sorted { $0.id < $1.id }) {
+				UserDefaults.standard.set(data, forKey: _recordsV2Key)
+				try? data.write(to: _recordsV2URL, options: [.atomic])
+			}
+			UserDefaults.standard.set(true, forKey: "Muthabbit.installRecordsMigrated")
+		}
+		result[ownBundleID] = nil
+		return result
 	}
 	
 	private func _saveInstalled() {
-		let list = Array(installedIDs).sorted()
-		UserDefaults.standard.set(list, forKey: "Muthabbit.installedBundleIDs")
-		if let data = try? JSONEncoder().encode(list) {
-			try? data.write(to: Self._recordsURL, options: [.atomic])
-		}
+		let list = records.values.sorted { $0.id < $1.id }
+		guard let data = try? JSONEncoder().encode(list) else { return }
+		UserDefaults.standard.set(data, forKey: Self._recordsV2Key)
+		try? data.write(to: Self._recordsV2URL, options: [.atomic])
+	}
+	
+	/// Newest stored signed copy of this bundle id, if any.
+	static func newestSigned(_ bundleID: String) -> Signed? {
+		let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+		req.predicate = NSPredicate(format: "identifier == %@", bundleID)
+		req.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
+		req.fetchLimit = 1
+		return (try? Storage.shared.context.fetch(req))?.first
 	}
 	
 	/// Asks iOS whether an app with this bundle id is installed (LSApplicationWorkspace).
@@ -87,16 +131,56 @@ final class QuickInstallManager: ObservableObject {
 		return fn(ws, sel, bundleID as NSString)
 	}
 	
-	/// Restores the record for any stored signed app that iOS reports as installed.
+	/// Matches the history with what iOS reports as installed:
+	/// - adds stored signed apps that are installed but have no record;
+	/// - fills missing name/version from the newest signed copy;
+	/// - removes records of apps that were deleted from the device, but only when the check is
+	///   proven to work (this app and at least one recorded app are reported as installed),
+	///   so a blocked/filtered check on a future iOS version can never wipe the list.
 	func reconcileWithDevice() {
-		let req: NSFetchRequest<Signed> = Signed.fetchRequest()
-		let ids = Set(((try? Storage.shared.context.fetch(req)) ?? []).compactMap(\.identifier))
 		var changed = false
-		for id in ids where !installedIDs.contains(id) && Self.isAppInstalledOnDevice(id) {
-			installedIDs.insert(id)
+		if records[Self.ownBundleID] != nil { records[Self.ownBundleID] = nil; changed = true }
+		
+		let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+		let signedIDs = Set(((try? Storage.shared.context.fetch(req)) ?? []).compactMap(\.identifier))
+		for id in signedIDs where id != Self.ownBundleID && records[id] == nil && Self.isAppInstalledOnDevice(id) {
+			records[id] = _record(id, from: Self.newestSigned(id))
 			changed = true
 		}
+		
+		for (id, record) in records where record.name == nil || record.version == nil {
+			if let signed = Self.newestSigned(id) {
+				records[id] = InstallRecord(
+					id: id,
+					name: record.name ?? signed.name,
+					version: record.version ?? signed.version,
+					iconURL: record.iconURL,
+					date: record.date ?? signed.date
+				)
+				changed = true
+			}
+		}
+		
+		let presence = Dictionary(uniqueKeysWithValues: records.keys.map { ($0, Self.isAppInstalledOnDevice($0)) })
+		let checkWorks = Self.isAppInstalledOnDevice(Self.ownBundleID) && presence.values.contains(true)
+		if checkWorks {
+			for (id, present) in presence where !present && states[id] == nil {
+				records[id] = nil
+				changed = true
+			}
+		}
 		if changed { _saveInstalled() }
+	}
+	
+	private func _record(_ id: String, from signed: Signed?, version: String? = nil) -> InstallRecord {
+		let old = records[id]
+		return InstallRecord(
+			id: id,
+			name: signed?.name ?? old?.name,
+			version: version ?? signed?.version ?? old?.version,
+			iconURL: old?.iconURL,
+			date: Date()
+		)
 	}
 	/// Signed copy produced by the current attempt, deleted if the install fails or is canceled.
 	private var _attemptSigned: [String: String] = [:]
@@ -117,12 +201,13 @@ final class QuickInstallManager: ObservableObject {
 	}
 	
 	func markInstalled(_ bundleID: String) {
-		installedIDs.insert(bundleID)
+		guard bundleID != Self.ownBundleID else { return }
+		records[bundleID] = _record(bundleID, from: Self.newestSigned(bundleID))
 		_saveInstalled()
 	}
 	
 	func unmarkInstalled(_ bundleID: String) {
-		installedIDs.remove(bundleID)
+		records[bundleID] = nil
 		_saveInstalled()
 	}
 	
@@ -184,8 +269,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// Must be called once at launch so the observers are registered.
 	func activate() {
-		// This app is installed by definition; it shows in "تطبيقاتي" once a signed copy exists.
-		if let own = Bundle.main.bundleIdentifier { markInstalled(own) }
+		// This app itself is not listed in "تطبيقاتي" (its own version is in «حول التطبيق»).
 		reconcileWithDevice()
 	}
 	
@@ -855,4 +939,14 @@ enum LibraryDeleteHelper {
 			try? Storage.shared.context.save()
 		}
 	}
+}
+
+
+/// One entry in the install history ("تطبيقاتي").
+struct InstallRecord: Codable, Equatable, Identifiable {
+	let id: String
+	var name: String?
+	var version: String?
+	var iconURL: String?
+	var date: Date?
 }

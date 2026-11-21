@@ -103,10 +103,20 @@ struct StoreHomeView: View {
 						if let hero = _entries.first {
 							_heroCard(hero).padding(.bottom, 22)
 						}
-						// Distinct ids: the same apps also appear in the list below; sharing ids inside one
-						// LazyVStack made SwiftUI swap card/row views and leave gaps while scrolling.
-						ForEach(Array(_entries.dropFirst().prefix(2)), id: \.featuredID) { entry in
-							_featuredAppCard(entry).padding(.bottom, 22)
+						// Themed cards, each with its own layout. Distinct ids (prefixed): the same apps also
+						// appear in the list below; sharing ids inside one LazyVStack made SwiftUI swap views.
+						let picks = _featuredPicks
+						if let entry = picks.sourcePick {
+							_sourcePickCard(entry).padding(.bottom, 22)
+						}
+						if let entry = picks.newThisWeek {
+							_newThisWeekCard(entry).padding(.bottom, 22)
+						}
+						if !picks.recentlyUpdated.isEmpty {
+							_recentUpdatesCard(picks.recentlyUpdated).padding(.bottom, 22)
+						}
+						if let spotlight = picks.spotlight {
+							_categorySpotlightCard(spotlight).padding(.bottom, 22)
 						}
 					}
 					
@@ -308,8 +318,281 @@ struct StoreHomeView: View {
 							}
 						}
 					}
-					LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
+					// Dimming only behind the title text at the bottom.
+					LinearGradient(
+						stops: [
+							.init(color: .clear, location: 0),
+							.init(color: .clear, location: 0.35),
+							.init(color: .black.opacity(0.7), location: 0.75)
+						],
+						startPoint: .top,
+						endPoint: .bottom
+					)
 				}
+			)
+			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+		}
+		.buttonStyle(.plain)
+		.padding(.horizontal, 20)
+	}
+	
+	// MARK: Featured picks (no random apps)
+	
+	struct FeaturedPicks {
+		var sourcePick: StoreAppEntry?
+		var newThisWeek: StoreAppEntry?
+		var recentlyUpdated: [StoreAppEntry] = []
+		var spotlight: (category: StoreCategory, apps: [StoreAppEntry])?
+	}
+	
+	/// Only real signals from the sources: `featuredApps` set by the source, and version dates.
+	/// AltStore sources have no ratings or download counts, so nothing here is ranked by popularity.
+	/// Each app appears in one card at most.
+	private var _featuredPicks: FeaturedPicks {
+		var picks = FeaturedPicks()
+		var used = Set<String>()
+		if let hero = _entries.first { used.insert(hero.id) }
+		let now = Date()
+		func date(_ e: StoreAppEntry) -> Date? { e.app.currentDate?.date }
+		func isRecent(_ e: StoreAppEntry, days: Double) -> Bool {
+			guard let d = date(e) else { return false }
+			return d <= now.addingTimeInterval(86_400) && now.timeIntervalSince(d) < days * 86_400
+		}
+		let byDate = _entries.filter { date($0) != nil }.sorted { date($0)! > date($1)! }
+		
+		// 1. Source picks: apps listed in a source's `featuredApps`, newest first.
+		let featured = _entries.filter { e in
+			guard let id = e.app.id else { return false }
+			return (e.source.featuredApps ?? []).contains(id)
+		}
+		.sorted { (date($0) ?? .distantPast) > (date($1) ?? .distantPast) }
+		if let pick = featured.first(where: { !used.contains($0.id) }) {
+			picks.sourcePick = pick
+			used.insert(pick.id)
+		}
+		
+		// 2. New this week: an app whose only version was published in the last 7 days.
+		if let pick = byDate.first(where: { e in
+			!used.contains(e.id) && isRecent(e, days: 7) && (e.app.versions?.count ?? 1) <= 1
+		}) {
+			picks.newThisWeek = pick
+			used.insert(pick.id)
+		}
+		
+		// 3. Recently updated: up to 3 apps updated in the last 14 days.
+		picks.recentlyUpdated = Array(byDate.filter { !used.contains($0.id) && isRecent($0, days: 14) }.prefix(3))
+		picks.recentlyUpdated.forEach { used.insert($0.id) }
+		
+		// 4. Category spotlight: the largest category (not "other") with at least 3 apps.
+		if let category = _categories.first(where: { $0.key != "other" && $0.count >= 3 }) {
+			let apps = _entries.filter { StoreCategory.key(for: $0.app.category) == category.key }
+				.sorted { (date($0) ?? .distantPast) > (date($1) ?? .distantPast) }
+			picks.spotlight = (category, Array(apps.prefix(4)))
+		}
+		return picks
+	}
+	
+	/// First readable paragraph of the description (markdown symbols removed).
+	private func _shortDescription(_ app: ASRepository.App) -> String? {
+		let text = app.localizedDescription ?? app.description ?? ""
+		for line in text.components(separatedBy: .newlines) {
+			var clean = line.trimmingCharacters(in: .whitespaces)
+			while let first = clean.first, "#*-•>".contains(first) {
+				clean = String(clean.dropFirst()).trimmingCharacters(in: .whitespaces)
+			}
+			clean = clean.replacingOccurrences(of: "**", with: "")
+			if clean.count >= 12 { return clean }
+		}
+		return nil
+	}
+	
+	/// "1.5 · 21 نوفمبر · 22.4 م.ب" (only the parts that are known).
+	private func _meta(_ app: ASRepository.App) -> String {
+		var parts: [String] = []
+		if let v = app.currentVersion { parts.append("\u{2066}\(v)\u{2069}") }
+		if let d = app.currentDate?.date {
+			parts.append(d.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(AppLanguage.locale)))
+		}
+		if let bytes = app.size ?? app.currentAppVersion?.size.map(Int64.init) ?? app.backupSize, bytes > 0 {
+			parts.append(L("%@ م.ب", (Double(bytes) / 1_048_576).formatted(.number.precision(.fractionLength(1)))))
+		}
+		return parts.joined(separator: " · ")
+	}
+	
+	private func _cardLabel(_ text: String, systemImage: String, color: Color) -> some View {
+		Label(text, systemImage: systemImage)
+			.font(.footnote.weight(.bold))
+			.foregroundStyle(color)
+			.textCase(.uppercase)
+	}
+	
+	private func _detailLink<Content: View>(_ entry: StoreAppEntry, @ViewBuilder label: () -> Content) -> some View {
+		NavigationLink {
+			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app, others: entry.others)
+		} label: {
+			label()
+		}
+		.buttonStyle(.plain)
+	}
+	
+	/// Style 1 – «مختارات المصدر»: tall poster card (screenshot if the source has one).
+	@ViewBuilder
+	private func _sourcePickCard(_ entry: StoreAppEntry) -> some View {
+		_detailLink(entry) {
+			ZStack(alignment: .bottomLeading) {
+				Group {
+					if let shot = entry.app.screenshotURLs?.first {
+						LazyImage(request: ImageRequest(url: shot, processors: [
+							ImageProcessors.Resize(size: CGSize(width: 700, height: 700), unit: .pixels)
+						])) { state in
+							if let image = state.image {
+								image.resizable().scaledToFill()
+							} else {
+								Color(.tertiarySystemFill)
+							}
+						}
+					} else {
+						ZStack {
+							_blurredBackdrop(entry.app.iconURL)
+							_icon(entry.app.iconURL, size: 110).offset(y: -40)
+						}
+					}
+				}
+				.frame(height: 300)
+				.frame(maxWidth: .infinity)
+				.clipped()
+				
+				LinearGradient(
+					stops: [.init(color: .clear, location: 0.3), .init(color: .black.opacity(0.8), location: 1)],
+					startPoint: .top, endPoint: .bottom
+				)
+				
+				VStack(alignment: .leading, spacing: 6) {
+					_cardLabel(L("مختارات المصدر"), systemImage: "star.fill", color: .yellow)
+					HStack(spacing: 10) {
+						_icon(entry.app.iconURL, size: 44)
+						VStack(alignment: .leading, spacing: 1) {
+							Text(entry.app.currentName).font(.title3.bold()).foregroundStyle(.white).lineLimit(1)
+							Text(entry.app.subtitle ?? entry.source.name ?? "").font(.subheadline).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
+						}
+					}
+					if let desc = _shortDescription(entry.app) {
+						Text(desc).font(.footnote).foregroundStyle(.white.opacity(0.85)).lineLimit(2)
+					}
+					Text(_meta(entry.app)).font(.caption).foregroundStyle(.white.opacity(0.7))
+						.padding(.trailing, 96)
+				}
+				.padding(16)
+			}
+			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+		}
+		.overlay(alignment: .bottomTrailing) {
+			DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+				.padding(16)
+		}
+		.padding(.horizontal, 20)
+	}
+	
+	/// Style 2 – «جديد هذا الأسبوع»: tinted card, big icon beside the text, details as tags.
+	@ViewBuilder
+	private func _newThisWeekCard(_ entry: StoreAppEntry) -> some View {
+		let tint = entry.app.tintColor ?? entry.source.tintColor ?? .accentColor
+		_detailLink(entry) {
+			VStack(alignment: .leading, spacing: 12) {
+				_cardLabel(L("جديد هذا الأسبوع"), systemImage: "sparkles", color: tint)
+				HStack(alignment: .top, spacing: 14) {
+					_icon(entry.app.iconURL, size: 84)
+					VStack(alignment: .leading, spacing: 4) {
+						Text(entry.app.currentName).font(.title2.bold()).lineLimit(2)
+						if let sub = entry.app.subtitle {
+							Text(sub).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+						}
+					}
+					Spacer(minLength: 0)
+				}
+				if let desc = _shortDescription(entry.app) {
+					Text(desc).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+				}
+				HStack {
+					Text(_meta(entry.app)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+					Spacer()
+					Color.clear.frame(width: 90, height: 1)
+				}
+			}
+			.padding(18)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(
+				LinearGradient(colors: [tint.opacity(0.28), tint.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+			)
+			.background(Color(.secondarySystemBackground))
+			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+		}
+		.overlay(alignment: .bottomTrailing) {
+			DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+				.padding(16)
+		}
+		.padding(.horizontal, 20)
+	}
+	
+	/// Style 3 – «آخر التحديثات»: one card listing up to three freshly updated apps.
+	@ViewBuilder
+	private func _recentUpdatesCard(_ entries: [StoreAppEntry]) -> some View {
+		VStack(alignment: .leading, spacing: 4) {
+			_cardLabel(L("آخر التحديثات"), systemImage: "arrow.triangle.2.circlepath", color: .orange)
+				.padding(.bottom, 6)
+			ForEach(entries, id: \.featuredID) { entry in
+				HStack(spacing: 12) {
+					_detailLink(entry) {
+						HStack(spacing: 12) {
+							_icon(entry.app.iconURL, size: 52)
+							VStack(alignment: .leading, spacing: 2) {
+								Text(entry.app.currentName).font(.body.weight(.semibold)).lineLimit(1)
+								Text(_meta(entry.app)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+							}
+							Spacer(minLength: 0)
+						}
+						.contentShape(Rectangle())
+					}
+					DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+				}
+				.padding(.vertical, 6)
+				if entry.id != entries.last?.id {
+					Divider().padding(.leading, 64)
+				}
+			}
+		}
+		.padding(18)
+		.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+		.padding(.horizontal, 20)
+	}
+	
+	/// Style 4 – category spotlight: large title over overlapping icons; opens that category.
+	@ViewBuilder
+	private func _categorySpotlightCard(_ spotlight: (category: StoreCategory, apps: [StoreAppEntry])) -> some View {
+		Button {
+			withAnimation(.snappy) { _selectedCategory = spotlight.category.key }
+		} label: {
+			VStack(alignment: .leading, spacing: 14) {
+				_cardLabel(L("تصنيف مميز"), systemImage: "square.grid.2x2.fill", color: .white.opacity(0.85))
+				Text(spotlight.category.title).font(.largeTitle.bold()).foregroundStyle(.white)
+				HStack(spacing: -14) {
+					ForEach(spotlight.apps, id: \.featuredID) { entry in
+						_icon(entry.app.iconURL, size: 58)
+							.overlay(
+								RoundedRectangle(cornerRadius: 58 * 0.225, style: .continuous)
+									.stroke(.white.opacity(0.6), lineWidth: 2)
+							)
+					}
+					Spacer(minLength: 0)
+				}
+				Text(L("%@ تطبيق في هذا التصنيف · عرض الكل", spotlight.category.count.formatted()))
+					.font(.footnote.weight(.semibold))
+					.foregroundStyle(.white.opacity(0.85))
+			}
+			.padding(20)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(
+				LinearGradient(colors: [.indigo, .purple, .pink.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
 			)
 			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
 		}
@@ -449,17 +732,20 @@ struct HeroDriftBackground: View {
 						let phase = Double(index) * 1.7
 						let x = cos(t / (9 + Double(index) * 2) + phase) * geo.size.width * 0.3
 						let y = sin(t / (11 + Double(index) * 3) + phase) * geo.size.height * 0.22
+						// Sharp icons (light blur only), so the apps stay recognizable.
+						let side = geo.size.width * 0.34
 						LazyImage(request: ImageRequest(url: url, processors: [
-							ImageProcessors.Resize(size: CGSize(width: 96, height: 96), unit: .pixels),
-							ImageProcessors.GaussianBlur(radius: 10)
+							ImageProcessors.Resize(size: CGSize(width: 256, height: 256), unit: .pixels),
+							ImageProcessors.GaussianBlur(radius: 1)
 						])) { state in
 							if let image = state.image {
 								image.resizable().scaledToFill()
 							}
 						}
-						.frame(width: geo.size.width * 0.55, height: geo.size.width * 0.55)
-						.clipShape(Circle())
-						.opacity(0.55)
+						.frame(width: side, height: side)
+						.clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
+						.shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+						.opacity(0.9)
 						.position(
 							x: geo.size.width * (0.2 + 0.2 * Double(index)) + x,
 							y: geo.size.height * (index.isMultiple(of: 2) ? 0.3 : 0.55) + y
@@ -476,30 +762,59 @@ struct HeroDriftBackground: View {
 
 
 /// One category chip. Categories come from each app's `category` field in its source
-/// (AltStore format). Spellings that differ only in case/spaces are merged; the standard
-/// AltStore categories get translated names, any other value is shown as written by the source.
+/// (AltStore format, or custom values used by community sources). Equivalent spellings are
+/// merged into one chip (e.g. "Tools" and "utilities", "EMU" and "Emulators") and translated;
+/// unknown values are shown as written by the source.
 struct StoreCategory: Identifiable, Equatable {
 	let key: String
 	let title: String
 	let count: Int
 	var id: String { key }
 	
-	private static let _known: [String: String] = [
+	/// canonical key → Arabic title (the localization key).
+	private static let _titles: [String: String] = [
 		"games": "ألعاب",
 		"entertainment": "ترفيه",
-		"utilities": "أدوات مساعدة",
-		"social": "تواصل اجتماعي",
+		"utilities": "أدوات",
+		"social": "تواصل",
 		"developer": "أدوات المطورين",
 		"photo-video": "صور وفيديو",
 		"lifestyle": "نمط الحياة",
+		"music": "موسيقى",
+		"movies": "أفلام",
+		"sideloading": "تثبيت جانبي",
+		"exploits": "ثغرات",
+		"emulators": "محاكيات",
+		"ports": "ألعاب منقولة",
+		"32bit": "تطبيقات 32 بت",
+		"tweaks": "تطبيقات معدّلة",
 		"other": "أخرى"
+	]
+	
+	/// normalized spelling → canonical key.
+	private static let _aliases: [String: String] = [
+		"game": "games", "games": "games", "gaming": "games",
+		"tool": "utilities", "tools": "utilities", "utility": "utilities", "utilities": "utilities",
+		"social": "social", "socialnetworking": "social", "socialmedia": "social",
+		"developer": "developer", "developertools": "developer", "development": "developer",
+		"photo-video": "photo-video", "photovideo": "photo-video", "photo&video": "photo-video", "photoandvideo": "photo-video",
+		"music": "music", "audio": "music",
+		"movie": "movies", "movies": "movies",
+		"sideload": "sideloading", "sideloading": "sideloading",
+		"exploit": "exploits", "exploits": "exploits",
+		"emu": "emulators", "emus": "emulators", "emulator": "emulators", "emulators": "emulators", "emulation": "emulators",
+		"port": "ports", "ports": "ports",
+		"32bit": "32bit", "32-bit": "32bit",
+		"tweak": "tweaks", "tweaks": "tweaks", "tweaked": "tweaks", "tweakedapps": "tweaks",
+		"other": "other", "others": "other", "misc": "other"
 	]
 	
 	static func key(for raw: String?) -> String? {
 		guard let raw else { return nil }
-		let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+		let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 		guard !trimmed.isEmpty else { return nil }
-		return trimmed.lowercased()
+		let compact = trimmed.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "_", with: "")
+		return _aliases[compact] ?? _aliases[trimmed] ?? trimmed
 	}
 	
 	static func build(from entries: [StoreAppEntry]) -> [StoreCategory] {
@@ -509,7 +824,7 @@ struct StoreCategory: Identifiable, Equatable {
 			guard let raw = entry.app.category, let key = key(for: raw) else { continue }
 			counts[key, default: 0] += 1
 			if titles[key] == nil {
-				titles[key] = _known[key].map { L($0) } ?? raw.trimmingCharacters(in: .whitespacesAndNewlines)
+				titles[key] = _titles[key].map { L($0) } ?? raw.trimmingCharacters(in: .whitespacesAndNewlines)
 			}
 		}
 		return counts.map { StoreCategory(key: $0.key, title: titles[$0.key] ?? $0.key, count: $0.value) }
