@@ -22,6 +22,7 @@ struct StoreHomeView: View {
 	@StateObject private var viewModel = SourcesViewModel.shared
 	@State private var _isSourcesPresenting = false
 	@State private var _searchText = ""
+	@ObservedObject private var _github = GitHubAccount.shared
 	
 	@FetchRequest(
 		entity: AltSource.entity(),
@@ -64,6 +65,26 @@ struct StoreHomeView: View {
 						ForEach(Array(_entries.dropFirst().prefix(2))) { entry in
 							_featuredAppCard(entry)
 						}
+					}
+					
+					if _searchText.isEmpty, _github.isSignedIn {
+						NavigationLink {
+							MyProjectsView()
+						} label: {
+							HStack(spacing: 14) {
+								SettingsIcon(systemName: "shippingbox.fill", color: .black)
+								VStack(alignment: .leading) {
+									Text("مشاريعي").font(.headline)
+									Text("تطبيقات مستودعاتك على GitHub").font(.footnote).foregroundStyle(.secondary)
+								}
+								Spacer()
+								Image(systemName: "chevron.forward").foregroundStyle(.tertiary)
+							}
+							.padding(16)
+							.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+						}
+						.buttonStyle(.plain)
+						.padding(.horizontal, 20)
 					}
 					
 					if !_filtered.isEmpty {

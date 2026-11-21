@@ -86,6 +86,23 @@ struct SettingsView: View {
 					Text("تُستخدم الشهادة المحددة تلقائيًا لتوقيع كل تطبيق عند التثبيت أو التحديث. يلزم ملف p12 وملف mobileprovision.")
 				}
 				
+				// GitHub
+				Section {
+					NavigationLink(destination: GitHubAccountView()) {
+						HStack {
+							SettingsRow(title: "تسجيل الدخول عبر GitHub", systemName: "person.crop.circle.fill", color: .black)
+							Spacer()
+							if let login = GitHubAccount.shared.login {
+								Text("@\(login)").foregroundStyle(.secondary)
+							}
+						}
+					}
+				} header: {
+					Text("GitHub")
+				} footer: {
+					Text("لعرض مستودعاتك وتثبيت تطبيقاتها من «مشاريعي».")
+				}
+				
 				// Install & signing defaults
 				Section {
 					NavigationLink(destination: ConfigurationView()) {

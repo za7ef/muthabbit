@@ -89,7 +89,7 @@ class DownloadManager: NSObject, ObservableObject {
 		
 		let download = Download(id: id, url: url, sourceProvenance: sourceProvenance)
 		
-		let task = _session.downloadTask(with: url)
+		let task = _session.downloadTask(with: GitHubAccount.downloadRequest(for: url))
 		download.task = task
 		task.resume()
 		
@@ -130,7 +130,7 @@ class DownloadManager: NSObject, ObservableObject {
 			_updateBackgroundAudioState()
 			#endif
 		} else if let url = download.task?.originalRequest?.url {
-			let task = _session.downloadTask(with: url)
+			let task = _session.downloadTask(with: GitHubAccount.downloadRequest(for: url))
 			download.task = task
 			task.resume()
 			
