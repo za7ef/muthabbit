@@ -66,6 +66,7 @@ final class SelfUpdateManager {
 		let order = remoteVersion.compare(AppInfo.marketingVersion, options: .numeric)
 		if order == .orderedDescending { return true }
 		if order == .orderedAscending { return false }
+		guard remoteBuild > 0 else { return false }
 		let localBuild = Int(AppInfo.buildNumber) ?? 0
 		return remoteBuild > localBuild
 	}
@@ -112,25 +113,23 @@ final class SelfUpdateManager {
 		}
 	}
 	
-	/// Tag format: "v1.0.0-b12" → ("1.0.0", 12)
+	/// Tag formats: "v1.1" → ("1.1", 0), legacy "v1.0.0-b12" → ("1.0.0", 12)
 	static func parseTag(_ tag: String) -> (version: String, build: Int)? {
 		var value = tag
 		if value.hasPrefix("v") { value.removeFirst() }
 		let parts = value.components(separatedBy: "-b")
-		guard
-			parts.count == 2,
-			!parts[0].isEmpty,
-			let build = Int(parts[1])
-		else {
-			return nil
+		if parts.count == 2, !parts[0].isEmpty, let build = Int(parts[1]) {
+			return (parts[0], build)
 		}
-		return (parts[0], build)
+		// New format: "v1.1" (one marketing version per build; build number not in the tag).
+		guard !value.isEmpty, value.allSatisfy({ $0.isNumber || $0 == "." }) else { return nil }
+		return (value, 0)
 	}
 	
 	// MARK: UI
 	
 	private func _present(_ info: SelfUpdateInfo, tagKey: String) {
-		var message = "الإصدار \(info.version) (\(info.build))"
+		var message = info.build > 0 ? "الإصدار \(info.version) (\(info.build))" : "الإصدار \(info.version)"
 		if !info.notes.isEmpty {
 			message += "\n\nما الجديد:\n" + String(info.notes.prefix(600))
 		}
