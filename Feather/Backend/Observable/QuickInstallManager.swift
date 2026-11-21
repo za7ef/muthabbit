@@ -66,6 +66,14 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// download id → (state key, is update)
 	private var _pending: [String: (key: String, isUpdate: Bool)] = [:]
+	/// Per download job: Imported uuids that existed before it started, and the expected version.
+	private var _jobBefore: [String: Set<String>] = [:]
+	private var _jobExpected: [String: String] = [:]
+	
+	private func _allImportedUUIDs() -> Set<String> {
+		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
+		return Set(((try? Storage.shared.context.fetch(req)) ?? []).compactMap(\.uuid))
+	}
 	
 	// Background install session (kept alive while installing).
 	private var _installer: ServerInstaller?
@@ -133,6 +141,10 @@ final class QuickInstallManager: ObservableObject {
 	) {
 		if let current = states[key], !current.isFailed { return }
 		_pending[downloadID] = (key, isUpdate)
+		_jobBefore[downloadID] = _allImportedUUIDs()
+		if let v = provenance?.sourceAppVersion {
+			_jobExpected[downloadID] = v.components(separatedBy: " (").first
+		}
 		downloadIDs[key] = downloadID
 		states[key] = .downloading
 		_ = DownloadManager.shared.startDownload(
@@ -185,9 +197,25 @@ final class QuickInstallManager: ObservableObject {
 			return
 		}
 		
-		guard let imported = _importedMatching(pending.key) else {
+		let before = _jobBefore.removeValue(forKey: downloadID) ?? []
+		let expected = _jobExpected.removeValue(forKey: downloadID)
+		// Use exactly the file this job just imported, never an older copy.
+		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
+		req.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
+		let fresh = ((try? Storage.shared.context.fetch(req)) ?? []).filter { !before.contains($0.uuid ?? "") }
+		guard let imported = fresh.first else {
 			_fail(pending.key, "تعذّر العثور على الملف بعد التنزيل.")
 			return
+		}
+		if let expected, let got = imported.version, got.compare(expected, options: .numeric) != .orderedSame {
+			_fail(pending.key, "الملف المنزّل بإصدار \(got) بدل \(expected).")
+			return
+		}
+		// Purge older imported and signed copies of the same app before signing.
+		if let id = imported.identifier {
+			let oldImp: NSFetchRequest<Imported> = Imported.fetchRequest()
+			oldImp.predicate = NSPredicate(format: "identifier == %@ AND uuid != %@", id, imported.uuid ?? "")
+			((try? Storage.shared.context.fetch(oldImp)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
 		}
 		
 		let showOptions = UserDefaults.standard.bool(forKey: Self.showInstallOptionsKey)
@@ -230,7 +258,7 @@ final class QuickInstallManager: ObservableObject {
 				Storage.shared.deleteApp(for: app)
 			}
 			
-			guard let signed = self._newestSigned(matching: app.identifier) else {
+			guard let signed = self._signedFrom(app) else {
 				self._fail(key, "تعذّر العثور على التطبيق بعد التوقيع.")
 				return
 			}
@@ -522,6 +550,16 @@ final class QuickInstallManager: ObservableObject {
 		request.fetchLimit = 1
 		if let match = try? Storage.shared.context.fetch(request).first { return match }
 		return _newestImported()
+	}
+	
+	/// Signed copy produced from this import (same bundle id and version, newest).
+	private func _signedFrom(_ app: AppInfoPresentable) -> Signed? {
+		guard let id = app.identifier else { return _newestSigned() }
+		let request: NSFetchRequest<Signed> = Signed.fetchRequest()
+		request.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
+		request.predicate = NSPredicate(format: "identifier == %@", id)
+		let list = (try? Storage.shared.context.fetch(request)) ?? []
+		return list.first(where: { $0.version == app.version }) ?? list.first
 	}
 	
 	private func _newestSigned(matching bundleID: String?) -> Signed? {

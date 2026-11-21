@@ -12,6 +12,7 @@ import SwiftUI
 import CoreData
 import NimbleViews
 import NukeUI
+import AltSourceKit
 
 struct LibraryView: View {
 	@ObservedObject private var _updateManager = UpdateManager.shared
@@ -146,19 +147,31 @@ struct LibraryView: View {
 	@ViewBuilder
 	private func _card(_ app: Signed) -> some View {
 		HStack(spacing: 14) {
-			StoreIconOverride(bundleID: app.identifier) {
-				FRAppIconView(app: app, size: 57)
+			let info = HStack(spacing: 14) {
+				StoreIconOverride(bundleID: app.identifier) {
+					FRAppIconView(app: app, size: 57)
+				}
+				VStack(alignment: .leading, spacing: 3) {
+					Text(app.name ?? .localized("Unknown"))
+						.font(.headline)
+						.foregroundStyle(.primary)
+						.lineLimit(1)
+					Text(_subtitle(app))
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.lineLimit(1)
+				}
+				Spacer(minLength: 8)
 			}
-			VStack(alignment: .leading, spacing: 3) {
-				Text(app.name ?? .localized("Unknown"))
-					.font(.headline)
-					.lineLimit(1)
-				Text(_subtitle(app))
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.lineLimit(1)
+			.contentShape(Rectangle())
+			if let entry = _storeEntry(app.identifier) {
+				NavigationLink {
+					SourceAppsDetailView(sourceURL: entry.0, source: entry.1, app: entry.2)
+				} label: { info }
+				.buttonStyle(.plain)
+			} else {
+				info
 			}
-			Spacer(minLength: 8)
 			_pill(app)
 		}
 		.padding(14)
@@ -176,6 +189,18 @@ struct LibraryView: View {
 				LibraryDeleteHelper.confirmDelete([app])
 			}
 		}
+	}
+	
+	/// The app's listing in a source (or «مشاريعي»), for opening its store page.
+	private func _storeEntry(_ bundleID: String?) -> (URL, ASRepository, ASRepository.App)? {
+		guard let bundleID else { return nil }
+		for (url, repo) in SourcesViewModel.shared.sources {
+			if let app = repo.apps.first(where: { $0.id == bundleID }) { return (url.sourceURL ?? GitHubAccount.projectsSourceURL, repo, app) }
+		}
+		if let repo = GitHubAccount.shared.projects, let app = repo.apps.first(where: { $0.id == bundleID }) {
+			return (GitHubAccount.projectsSourceURL, repo, app)
+		}
+		return nil
 	}
 	
 	private func _subtitle(_ app: Signed) -> String {
