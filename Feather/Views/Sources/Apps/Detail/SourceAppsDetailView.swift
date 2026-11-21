@@ -34,6 +34,8 @@ struct SourceAppsDetailView: View {
 	let sourceURL: URL?
 	let source: ASRepository
 	let app: ASRepository.App
+	/// Other sources offering the same bundle id.
+	var others: [StoreAppEntry] = []
 	
 	var body: some View {
 		ScrollView {
@@ -84,6 +86,34 @@ struct SourceAppsDetailView: View {
 				_infoStrip(app: app)
 				Divider()
                 
+				if !others.isEmpty {
+					NBSection("متوفر في مصادر أخرى") {
+						VStack(spacing: 0) {
+							ForEach(others) { other in
+								NavigationLink {
+									SourceAppsDetailView(sourceURL: other.sourceURL, source: other.source, app: other.app)
+								} label: {
+									HStack {
+										Text(other.source.name ?? other.sourceURL?.host ?? "")
+											.foregroundStyle(.primary)
+										Spacer()
+										Text(other.app.currentVersion ?? "")
+											.foregroundStyle(.secondary)
+											.monospacedDigit()
+										Image(systemName: "chevron.forward")
+											.font(.footnote)
+											.foregroundStyle(.tertiary)
+									}
+									.padding(.vertical, 10)
+								}
+								.buttonStyle(.plain)
+								Divider()
+							}
+						}
+					}
+					Divider()
+				}
+				
 				if let screenshotURLs = _previewURLs, !screenshotURLs.isEmpty {
 					NBSection("معاينة") {
 						_screenshots(screenshotURLs: screenshotURLs)

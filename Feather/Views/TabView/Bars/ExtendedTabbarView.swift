@@ -44,7 +44,7 @@ struct ExtendedTabbarView: View {
 			}
 			
 			TabSection(.localized("Sources")) {
-				Tab(.localized("All Repositories"), systemImage: "globe.desk") {
+				Tab("كل المصادر", systemImage: "globe.desk") {
 					NavigationStack {
 						SourceAppsView(object: Array(_sources), viewModel: viewModel)
 					}

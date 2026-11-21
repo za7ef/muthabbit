@@ -17,6 +17,8 @@ struct StoreAppEntry: Identifiable {
 	let sourceURL: URL?
 	let source: ASRepository
 	let app: ASRepository.App
+	/// The same bundle id offered by other sources.
+	var others: [StoreAppEntry] = []
 }
 
 struct StoreHomeView: View {
@@ -38,16 +40,24 @@ struct StoreHomeView: View {
 	@State private var _limit = 30
 	
 	private func _buildEntries() -> [StoreAppEntry] {
-		var result: [StoreAppEntry] = []
-		var seen = Set<String>()
+		// One entry per bundle id across all sources; the newest version is the main entry.
+		var groups: [String: [StoreAppEntry]] = [:]
+		var order: [String] = []
 		for source in _sources {
 			guard let repo = viewModel.sources[source] else { continue }
 			for app in repo.apps {
-				let key = (app.id ?? app.currentUniqueId) + (source.sourceURL?.absoluteString ?? "")
-				guard !seen.contains(key) else { continue }
-				seen.insert(key)
-				result.append(StoreAppEntry(id: key, sourceURL: source.sourceURL, source: repo, app: app))
+				let bundle = app.id ?? app.currentUniqueId
+				let entry = StoreAppEntry(id: bundle + (source.sourceURL?.absoluteString ?? ""), sourceURL: source.sourceURL, source: repo, app: app)
+				if groups[bundle] == nil { order.append(bundle); groups[bundle] = [] }
+				if !(groups[bundle]!.contains { $0.id == entry.id }) { groups[bundle]!.append(entry) }
 			}
+		}
+		let result: [StoreAppEntry] = order.compactMap { bundle in
+			guard var list = groups[bundle], !list.isEmpty else { return nil }
+			list.sort { ($0.app.currentVersion ?? "0").compare($1.app.currentVersion ?? "0", options: .numeric) == .orderedDescending }
+			var main = list.removeFirst()
+			main.others = list
+			return main
 		}
 		return result.sorted { $0.app.currentName.localizedCompare($1.app.currentName) == .orderedAscending }
 	}
@@ -107,7 +117,7 @@ struct StoreHomeView: View {
 							Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
 								.font(.title2.bold())
 							Spacer()
-							Text("\(_filtered.count.formatted()) تطبيق من \(viewModel.sources.count.formatted()) \(viewModel.sources.count == 1 ? "مصدر" : "مصادر")")
+							Text("\(_filtered.count.formatted()) تطبيق من \(_sources.count.formatted()) \((3...10).contains(_sources.count) ? "مصادر" : "مصدر")")
 								.font(.footnote)
 								.foregroundStyle(.secondary)
 						}
@@ -246,7 +256,7 @@ struct StoreHomeView: View {
 	@ViewBuilder
 	private func _featuredAppCard(_ entry: StoreAppEntry) -> some View {
 		NavigationLink {
-			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app, others: entry.others)
 		} label: {
 			ZStack(alignment: .bottom) {
 				ZStack {
@@ -290,7 +300,7 @@ struct StoreHomeView: View {
 	private func _row(_ entry: StoreAppEntry) -> some View {
 		HStack(spacing: 8) {
 		NavigationLink {
-			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
+			SourceAppsDetailView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app, others: entry.others)
 		} label: {
 			HStack(spacing: 14) {
 				_icon(entry.app.iconURL, size: 62)
