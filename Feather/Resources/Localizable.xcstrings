@@ -7785,7 +7785,7 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "تحذير idevice"
+            "value" : "تعمل هذه الطريقة دون خادم محلي، لكنها تتطلب أمرين قبل كل تثبيت:\n\n١. استيراد ملف الاقتران (Pairing File) الخاص بالجهاز من إعدادات التثبيت.\n٢. تشغيل تطبيق LocalDevVPN وتفعيل اتصاله.\n\nإذا لم يتوفر أحدهما فسيفشل التثبيت. يُنصح بطريقة الخادم ما لم تكن الحاجة إلى هذه الطريقة."
           }
         },
         "en" : {
@@ -14960,7 +14960,7 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Server (موصى به):\nيستخدم خادمًا محليًا و itms-services:// لتثبيت التطبيقات.\n\nIDevice (متقدم):\nيستخدم VPN وملف اقتران. يكتب إلى AFC ويستدعي installd يدويًا، مع مراقبة تقدم التثبيت عبر callback.\nالميزة: موثوق جدًا، ولا يحتاج إلى شهادات SSL أو خادم مستضاف خارجيًا، بل يعمل بطريقة مشابهة للكمبيوتر."
+            "value" : "الخادم (موصى به):\nيستخدم خادمًا محليًا على الجهاز ورابط itms-services:// لتثبيت التطبيقات.\n\nIDevice (متقدمة):\nتستخدم شبكة VPN وملف اقتران، وتنسخ التطبيق مباشرة ثم تستدعي خدمة التثبيت في النظام مع متابعة التقدم.\nميزتها: موثوقة جدًا ولا تحتاج إلى شهادات SSL ولا إلى خادم خارجي، فهي تعمل كما يعمل الحاسوب."
           }
         },
         "de" : {
@@ -18690,6 +18690,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配对文件不可用并且与设备不匹配，请导入可用的的配置文件。"
+          }
+        }
+      }
+    },
+    "After gaining beta access, you're able to use exclusive features that may not be present on releases!" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "بعد الانضمام إلى النسخة التجريبية، تتاح مزايا حصرية قد لا تتوفر في الإصدارات الرسمية."
+          }
+        }
+      }
+    },
+    "Exclusive Features" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "مزايا حصرية"
+          }
+        }
+      }
+    },
+    "No sources to export" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد مصادر للتصدير"
+          }
+        }
+      }
+    },
+    "Connect to LocalDevVPN" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاتصال بـ LocalDevVPN"
+          }
+        }
+      }
+    },
+    "Download LocalDevVPN" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تنزيل LocalDevVPN"
+          }
+        }
+      }
+    },
+    "Learn more about how to setup a repository..." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "معرفة المزيد عن إعداد مصدر..."
+          }
+        }
+      }
+    },
+    "PlugIns" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الإضافات (PlugIns)"
+          }
+        }
+      }
+    },
+    "No release notes available" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لا توجد ملاحظات لهذا الإصدار"
+          }
+        }
+      }
+    },
+    "Downloading" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "جارٍ التنزيل"
+          }
+        }
+      }
+    },
+    "Nickname" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الاسم المستعار"
+          }
+        }
+      }
+    },
+    "Minimum OS" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحد الأدنى لإصدار النظام"
+          }
+        }
+      }
+    },
+    "Success" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تمّ بنجاح"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحالة"
+          }
+        }
+      }
+    },
+    "Copy Download URL" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "نسخ رابط التنزيل"
+          }
+        }
+      }
+    },
+    "Ad-hoc" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ad-hoc"
+          }
+        }
+      }
+    },
+    "Injection" : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "الحقن"
+          }
+        }
+      }
+    },
+    "Open an [issue](https://github.com/claration/Feather/issues) on GitHub if you want your source to be featured." : {
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "لإبراز مصدرك، يمكن فتح طلب في GitHub."
           }
         }
       }
