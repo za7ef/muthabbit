@@ -139,9 +139,19 @@ final class SelfUpdateManager {
 			guard let self else { return }
 			UserDefaults.standard.set(tagKey, forKey: self._skipKey)
 		}
-		// The app cannot replace itself while running; the release page offers the new IPA.
-		let update = UIAlertAction(title: "تحديث", style: .default) { _ in
-			UIApplication.shared.open(info.pageURL)
+				let update = UIAlertAction(title: "تحديث", style: .default) { _ in
+			guard let ipa = info.ipaURL else {
+				UIApplication.shared.open(info.pageURL)
+				return
+			}
+			// Download → sign with the selected certificate → install over itself (Server method).
+			QuickInstallManager.shared.installFromSource(
+				url: ipa,
+				downloadID: "Muthabbit.selfUpdate.\(info.build)",
+				key: Bundle.main.bundleIdentifier ?? "com.za7ef.muthabbit",
+				provenance: nil,
+				isUpdate: true
+			)
 		}
 		
 		UIAlertController.showAlert(
