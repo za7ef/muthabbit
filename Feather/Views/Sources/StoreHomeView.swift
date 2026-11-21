@@ -29,6 +29,26 @@ struct StoreHomeView: View {
 	@State private var _isSourcesPresenting = false
 	@State private var _searchText = ""
 	@ObservedObject private var _github = GitHubAccount.shared
+	@ObservedObject private var _translations = TranslationCache.shared
+	
+	/// Translated text from the cache when available (filled by `batchTranslate`), else the original.
+	@AppStorage(AutoTranslate.enabledKey) private var _autoTranslate = true
+	
+	private func _tr(_ text: String) -> String {
+		_ = _translations.revision
+		guard _autoTranslate else { return text }
+		return _translations.get(text, target: AutoTranslate.target) ?? text
+	}
+	
+	/// Short texts to translate once per load: every subtitle plus the featured cards' descriptions.
+	private var _textsToTranslate: [String] {
+		var out = _entries.compactMap { $0.app.subtitle }
+		let picks = _featuredPicks
+		for e in [picks.sourcePick, picks.newThisWeek].compactMap({ $0 }) {
+			if let d = _shortDescription(e.app) { out.append(d) }
+		}
+		return out
+	}
 	
 	@FetchRequest(
 		entity: AltSource.entity(),
@@ -189,6 +209,7 @@ struct StoreHomeView: View {
 			.onChange(of: _searchText) { _ in _refilter() }
 			.onChange(of: _selectedCategory) { _ in _refilter() }
 			.navigationTitle(L("المتجر"))
+			.batchTranslate(_autoTranslate ? _textsToTranslate : [])
 			.navigationBarTitleDisplayMode(.large)
 			.searchable(text: $_searchText, prompt: L("ابحث في التطبيقات"))
 			.overlay {
@@ -486,7 +507,7 @@ struct StoreHomeView: View {
 							_icon(entry.app.iconURL, size: 52)
 							VStack(alignment: .leading, spacing: 2) {
 								Text(entry.app.currentName).font(.title3.bold()).lineLimit(1)
-								Text(entry.app.subtitle ?? entry.source.name ?? "")
+								Text(entry.app.subtitle.map(_tr) ?? entry.source.name ?? "")
 									.font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
 							}
 							Spacer(minLength: 0)
@@ -496,7 +517,7 @@ struct StoreHomeView: View {
 					DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
 				}
 				if let desc = _shortDescription(entry.app) {
-					Text(desc).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+					Text(_tr(desc)).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
 				}
 				Text(_meta(entry.app)).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
 			}
@@ -520,13 +541,13 @@ struct StoreHomeView: View {
 					VStack(alignment: .leading, spacing: 4) {
 						Text(entry.app.currentName).font(.title2.bold()).lineLimit(2)
 						if let sub = entry.app.subtitle {
-							Text(sub).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+							Text(_tr(sub)).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
 						}
 					}
 					Spacer(minLength: 0)
 				}
 				if let desc = _shortDescription(entry.app) {
-					Text(desc).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+					Text(_tr(desc)).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
 				}
 				HStack {
 					Text(_meta(entry.app)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -636,7 +657,7 @@ struct StoreHomeView: View {
 						Text(entry.app.currentName)
 							.font(.headline)
 							.foregroundStyle(.white)
-						Text(entry.app.subtitle ?? entry.app.currentVersion ?? "")
+						Text(entry.app.subtitle.map(_tr) ?? entry.app.currentVersion ?? "")
 							.font(.subheadline)
 							.foregroundStyle(.white.opacity(0.8))
 							.lineLimit(1)
@@ -671,7 +692,7 @@ struct StoreHomeView: View {
 						.font(.body.weight(.medium))
 						.foregroundStyle(.primary)
 						.lineLimit(1)
-					Text(entry.app.subtitle ?? entry.source.name ?? "")
+					Text(entry.app.subtitle.map(_tr) ?? entry.source.name ?? "")
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 						.lineLimit(2)

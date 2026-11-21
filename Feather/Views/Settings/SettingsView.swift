@@ -43,6 +43,7 @@ struct SettingsRow: View {
 
 // MARK: - View
 struct SettingsView: View {
+	@AppStorage(AutoTranslate.enabledKey) private var _autoTranslate = true
 	@AppStorage("feather.selectedCert") private var _storedSelectedCert: Int = 0
 	@AppStorage(QuickInstallManager.showInstallOptionsKey) private var _showInstallOptions = false
 	@AppStorage(QuickInstallManager.showProcessLogKey) private var _showProcessLog = false
@@ -133,6 +134,17 @@ struct SettingsView: View {
 					Text(L("الشاشات الإضافية"))
 				} footer: {
 					Text(L("عند إيقاف الخيارين، يتم التنزيل والتوقيع والتثبيت بضغطة واحدة في الخلفية دون أي شاشات إضافية. ولا تظهر خيارات التثبيت عند التحديث."))
+				}
+				
+				// Translation
+				Section {
+					Toggle(isOn: $_autoTranslate) {
+						SettingsRow(title: L("ترجمة الأوصاف تلقائيًا"), systemName: "character.bubble.fill", color: .blue)
+					}
+				} header: {
+					Text(L("الترجمة"))
+				} footer: {
+					Text(L("تُترجم أوصاف التطبيقات وعناوينها وملاحظات إصداراتها إلى لغة التطبيق عند كتابتها بلغة أخرى، عبر خدمة Google Translate. ويُرسل نص الوصف فقط، دون أي بيانات عن المستخدم."))
 				}
 				
 				// Storage

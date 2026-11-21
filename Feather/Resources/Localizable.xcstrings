@@ -29358,37 +29358,90 @@
         }
       }
     },
-    "ترجمة": {
+    "٢٢ نوفمبر ٢٠٢٦": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "ترجمة"
+            "value": "٢٢ نوفمبر ٢٠٢٦"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Translate"
+            "value": "November 22, 2026"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Traduire"
+            "value": "22 novembre 2026"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Traducir"
+            "value": "22 de noviembre de 2026"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Перевести"
+            "value": "22 ноября 2026 г."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "2026年11月22日"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "22 نومبر 2026"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "22 Kasım 2026"
+          }
+        }
+      }
+    },
+    "الترجمة": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الترجمة"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traduction"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducción"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перевод"
           }
         },
         "zh-Hans": {
@@ -29400,13 +29453,225 @@
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "ترجمہ کریں"
+            "value": "ترجمہ"
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Çevir"
+            "value": "Çeviri"
+          }
+        }
+      }
+    },
+    "ترجمة الأوصاف تلقائيًا": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ترجمة الأوصاف تلقائيًا"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate Descriptions Automatically"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traduire les descriptions automatiquement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traducir descripciones automáticamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически переводить описания"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动翻译描述"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تفصیلات کا خودکار ترجمہ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açıklamaları Otomatik Çevir"
+          }
+        }
+      }
+    },
+    "تُترجم أوصاف التطبيقات وعناوينها وملاحظات إصداراتها إلى لغة التطبيق عند كتابتها بلغة أخرى، عبر خدمة Google Translate. ويُرسل نص الوصف فقط، دون أي بيانات عن المستخدم.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تُترجم أوصاف التطبيقات وعناوينها وملاحظات إصداراتها إلى لغة التطبيق عند كتابتها بلغة أخرى، عبر خدمة Google Translate. ويُرسل نص الوصف فقط، دون أي بيانات عن المستخدم."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App descriptions, subtitles, and release notes written in another language are translated into the app language using Google Translate. Only the description text is sent, with no user data."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les descriptions, sous-titres et notes de version rédigés dans une autre langue sont traduits dans la langue de l’app via Google Traduction. Seul le texte de la description est envoyé, sans aucune donnée sur l’utilisateur."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las descripciones, subtítulos y notas de versión escritos en otro idioma se traducen al idioma de la app mediante Google Translate. Solo se envía el texto de la descripción, sin datos del usuario."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Описания, подзаголовки и примечания к выпускам на другом языке переводятся на язык приложения с помощью Google Translate. Отправляется только текст описания, без данных пользователя."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以其他语言撰写的应用描述、副标题和版本说明会通过 Google 翻译译为应用语言。仅发送描述文本，不包含任何用户数据。"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "دوسری زبان میں لکھی گئی ایپ کی تفصیلات، ذیلی عنوانات اور ریلیز نوٹس Google Translate کے ذریعے ایپ کی زبان میں ترجمہ کیے جاتے ہیں۔ صرف تفصیل کا متن بھیجا جاتا ہے، صارف کا کوئی ڈیٹا نہیں۔"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Başka bir dilde yazılmış uygulama açıklamaları, alt başlıklar ve sürüm notları Google Çeviri ile uygulama diline çevrilir. Yalnızca açıklama metni gönderilir, kullanıcı verisi gönderilmez."
+          }
+        }
+      }
+    },
+    "٩. الترجمة التلقائية": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "٩. الترجمة التلقائية"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. Automatic Translation"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. Traduction automatique"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. Traducción automática"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. Автоматический перевод"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. 自动翻译"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. خودکار ترجمہ"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9. Otomatik Çeviri"
+          }
+        }
+      }
+    },
+    "عند تفعيل «ترجمة الأوصاف تلقائيًا» في الإعدادات، تُرسل نصوص أوصاف التطبيقات وعناوينها الفرعية وملاحظات إصداراتها المكتوبة بلغة أخرى إلى خدمة Google Translate لترجمتها إلى لغة التطبيق. ولا يُرسل مع هذه النصوص أي بيانات عن المستخدم، غير أن Google قد تسجّل بيانات تقنية عامة مثل عنوان IP وفق سياسة الخصوصية الخاصة بها. وتُحفظ الترجمات داخل الجهاز فقط، ويمكن إيقاف الميزة في أي وقت من الإعدادات.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عند تفعيل «ترجمة الأوصاف تلقائيًا» في الإعدادات، تُرسل نصوص أوصاف التطبيقات وعناوينها الفرعية وملاحظات إصداراتها المكتوبة بلغة أخرى إلى خدمة Google Translate لترجمتها إلى لغة التطبيق. ولا يُرسل مع هذه النصوص أي بيانات عن المستخدم، غير أن Google قد تسجّل بيانات تقنية عامة مثل عنوان IP وفق سياسة الخصوصية الخاصة بها. وتُحفظ الترجمات داخل الجهاز فقط، ويمكن إيقاف الميزة في أي وقت من الإعدادات."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When “Translate Descriptions Automatically” is on in Settings, app descriptions, subtitles, and release notes written in another language are sent to Google Translate to be translated into the app language. No user data is sent with these texts, although Google may log general technical data such as the IP address under its own privacy policy. Translations are stored on the device only, and the feature can be turned off at any time in Settings."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lorsque « Traduire les descriptions automatiquement » est activé dans les réglages, les descriptions, sous-titres et notes de version rédigés dans une autre langue sont envoyés à Google Traduction pour être traduits dans la langue de l’app. Aucune donnée sur l’utilisateur n’est envoyée avec ces textes, mais Google peut enregistrer des données techniques générales comme l’adresse IP selon sa propre politique de confidentialité. Les traductions sont conservées uniquement sur l’appareil, et la fonction peut être désactivée à tout moment dans les réglages."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando «Traducir descripciones automáticamente» está activado en Ajustes, las descripciones, subtítulos y notas de versión escritos en otro idioma se envían a Google Translate para traducirlos al idioma de la app. No se envían datos del usuario con estos textos, aunque Google puede registrar datos técnicos generales como la dirección IP según su propia política de privacidad. Las traducciones se guardan solo en el dispositivo y la función puede desactivarse en cualquier momento desde Ajustes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если в настройках включено «Автоматически переводить описания», описания приложений, подзаголовки и примечания к выпускам на другом языке отправляются в Google Translate для перевода на язык приложения. Вместе с этими текстами не отправляются данные пользователя, однако Google может записывать общие технические данные, например IP-адрес, согласно своей политике конфиденциальности. Переводы хранятся только на устройстве, а функцию можно отключить в настройках в любое время."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在设置中开启“自动翻译描述”后，以其他语言撰写的应用描述、副标题和版本说明会发送到 Google 翻译，译为应用语言。这些文本不附带任何用户数据，但 Google 可能会依据其隐私政策记录 IP 地址等一般技术数据。译文仅保存在设备上，可随时在设置中关闭此功能。"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "جب ترتیبات میں «تفصیلات کا خودکار ترجمہ» آن ہو تو دوسری زبان میں لکھی گئی ایپ کی تفصیلات، ذیلی عنوانات اور ریلیز نوٹس ایپ کی زبان میں ترجمے کے لیے Google Translate کو بھیجے جاتے ہیں۔ ان متون کے ساتھ صارف کا کوئی ڈیٹا نہیں بھیجا جاتا، تاہم Google اپنی رازداری پالیسی کے مطابق IP ایڈریس جیسا عمومی تکنیکی ڈیٹا محفوظ کر سکتا ہے۔ ترجمے صرف ڈیوائس پر محفوظ ہوتے ہیں، اور یہ سہولت کسی بھی وقت ترتیبات سے بند کی جا سکتی ہے۔"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar’da “Açıklamaları Otomatik Çevir” açıkken, başka bir dilde yazılmış uygulama açıklamaları, alt başlıklar ve sürüm notları uygulama diline çevrilmek üzere Google Çeviri’ye gönderilir. Bu metinlerle birlikte kullanıcı verisi gönderilmez; ancak Google kendi gizlilik politikası uyarınca IP adresi gibi genel teknik verileri kaydedebilir. Çeviriler yalnızca cihazda saklanır ve özellik Ayarlar’dan istediğiniz zaman kapatılabilir."
           }
         }
       }
