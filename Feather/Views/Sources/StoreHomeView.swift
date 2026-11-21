@@ -69,13 +69,15 @@ struct StoreHomeView: View {
 	var body: some View {
 		NavigationStack {
 			ScrollView {
-				LazyVStack(alignment: .leading, spacing: 22) {
+				// No spacing between list rows (and no negative paddings that overlap during lazy layout);
+				// the cards get their own spacing.
+				LazyVStack(alignment: .leading, spacing: 0) {
 					if _searchText.isEmpty {
 						if let hero = _entries.first {
-							_heroCard(hero)
+							_heroCard(hero).padding(.bottom, 22)
 						}
 						ForEach(Array(_entries.dropFirst().prefix(2))) { entry in
-							_featuredAppCard(entry)
+							_featuredAppCard(entry).padding(.bottom, 22)
 						}
 					}
 					
@@ -97,13 +99,21 @@ struct StoreHomeView: View {
 						}
 						.buttonStyle(.plain)
 						.padding(.horizontal, 20)
+						.padding(.bottom, 22)
 					}
 					
 					if !_filtered.isEmpty {
-						Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
-							.font(.title2.bold())
+						HStack(alignment: .firstTextBaseline) {
+							Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
+								.font(.title2.bold())
+							Spacer()
+							Text("\(_filtered.count.formatted()) تطبيق من \(viewModel.sources.count.formatted()) \(viewModel.sources.count == 1 ? "مصدر" : "مصادر")")
+								.font(.footnote)
+								.foregroundStyle(.secondary)
+						}
 							.padding(.horizontal, 20)
-							.padding(.bottom, -14)
+							.padding(.top, 6)
+							.padding(.bottom, 8)
 						// Rows are direct children of the LazyVStack, so only visible rows are built.
 						let page = Array(_filtered.prefix(_limit))
 						let lastID = _filtered.last?.id
@@ -116,7 +126,6 @@ struct StoreHomeView: View {
 								}
 							}
 							.padding(.horizontal, 20)
-							.padding(.bottom, -22)
 							.onAppear {
 								if entry.id == pageLastID, _limit < _filtered.count {
 									_limit += 30
@@ -242,9 +251,7 @@ struct StoreHomeView: View {
 			ZStack(alignment: .bottom) {
 				ZStack {
 					// Cheap "blurred" backdrop: a tiny icon scaled up (no live blur pass while scrolling).
-					_icon(entry.app.iconURL, size: 8, thumb: true)
-						.scaleEffect(30)
-						.opacity(0.7)
+					_blurredBackdrop(entry.app.iconURL)
 					Color.black.opacity(0.25)
 					_icon(entry.app.iconURL, size: 96)
 						.offset(y: -24)
@@ -305,6 +312,25 @@ struct StoreHomeView: View {
 		.buttonStyle(.plain)
 		DownloadButtonView(sourceURL: entry.sourceURL, source: entry.source, app: entry.app)
 		}
+	}
+	
+	/// Backdrop blurred once by Nuke (cached bitmap) and laid out at the card's own size,
+	/// so nothing is scaled beyond the card bounds and no live blur runs while scrolling.
+	private func _blurredBackdrop(_ url: URL?) -> some View {
+		LazyImage(request: url.map {
+			ImageRequest(url: $0, processors: [
+				ImageProcessors.Resize(size: CGSize(width: 120, height: 120), unit: .pixels),
+				ImageProcessors.GaussianBlur(radius: 12)
+			])
+		}) { state in
+			if let image = state.image {
+				image.resizable().scaledToFill().opacity(0.7)
+			} else {
+				Color(.tertiarySystemFill)
+			}
+		}
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		.clipped()
 	}
 	
 	@ViewBuilder
