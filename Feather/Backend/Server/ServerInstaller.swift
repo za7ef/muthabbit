@@ -6,6 +6,9 @@
 //  Copyright © 2024 Lakr Aream. All Rights Reserved.
 //  ORIGINALLY LICENSED UNDER GPL-3.0, MODIFIED FOR USE FOR FEATHER
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import Vapor

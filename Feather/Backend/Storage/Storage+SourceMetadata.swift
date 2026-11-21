@@ -4,6 +4,9 @@
 //
 //  Created by Dominic on 26.05.2026.
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import AltSourceKit
 import CoreData

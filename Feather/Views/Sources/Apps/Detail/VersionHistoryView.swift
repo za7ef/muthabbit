@@ -4,6 +4,9 @@
 //
 //  Created by Nagata Asami on 27/7/25.
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import AltSourceKit

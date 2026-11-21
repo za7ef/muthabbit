@@ -7,6 +7,9 @@
 //  turns green «مثبّت», then the card moves down). Below: installed apps with «فتح».
 //  Signed-only copies live in «الموقّعة».
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import CoreData

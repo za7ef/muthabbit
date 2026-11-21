@@ -7,6 +7,8 @@
 //  - "Muthabbit.showInstallOptions": show the signing options before a new install.
 //  - "Muthabbit.showProcessLog": show the installation progress screen.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import SwiftUI

@@ -5,6 +5,9 @@
 //  Created by samara on 30.04.2025.
 //  Simplified for Muthabbit.
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import NimbleViews
@@ -104,7 +107,10 @@ struct AboutView: View {
 			} header: {
 				Text(L("الشكر والتراخيص"))
 			} footer: {
-				Text(L("هذا التطبيق نسخة معدّلة ومبسّطة من Feather، ويُوزَّع بموجب رخصة GPL-3.0، وتبقى حقوق المكتبات المستخدمة لأصحابها وفق تراخيصها."))
+				VStack(alignment: .leading, spacing: 6) {
+					Text(L("هذا التطبيق نسخة معدّلة ومبسّطة من Feather، ويُوزَّع بموجب رخصة GPL-3.0، وتبقى حقوق المكتبات المستخدمة لأصحابها وفق تراخيصها."))
+					Text(L("التعديلات: %@، وتُوزَّع بموجب الرخصة ذاتها.", "Copyright © 2026 za7ef"))
+				}
 			}
 			
 			Section {

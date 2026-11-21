@@ -29198,6 +29198,59 @@
           }
         }
       }
+    },
+    "التعديلات: %@، وتُوزَّع بموجب الرخصة ذاتها.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "التعديلات: %@، وتُوزَّع بموجب الرخصة ذاتها."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifications: %@, distributed under the same license."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modifications : %@, distribuées sous la même licence."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modificaciones: %@, distribuidas bajo la misma licencia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменения: %@, распространяются по той же лицензии."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修改部分：%@，按相同许可证分发。"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ترامیم: %@، اسی لائسنس کے تحت تقسیم کی جاتی ہیں۔"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Değişiklikler: %@, aynı lisans altında dağıtılır."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -5,6 +5,9 @@
 //  Created by samara on 10.04.2025.
 //  Reorganized for Muthabbit (iOS Settings style).
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import NimbleViews

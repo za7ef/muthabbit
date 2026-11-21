@@ -4,6 +4,8 @@
 //
 //  Preview images from a GitHub repo's README, for sources without screenshotURLs.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 

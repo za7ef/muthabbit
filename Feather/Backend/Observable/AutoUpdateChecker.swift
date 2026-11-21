@@ -5,6 +5,8 @@
 //  Runs the source update check automatically (launch / foreground),
 //  and adds the default source on first launch.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import CoreData

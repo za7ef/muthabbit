@@ -1,0 +1,16 @@
+وسم (Wasm)
+Copyright © 2026 za7ef
+https://github.com/za7ef/muthabbit
+
+هذا المشروع عمل مشتق من مشروع Feather:
+https://github.com/claration/feather
+وحقوق الشيفرة الأصلية محفوظة لمؤلفيها، وإشعاراتهم في رؤوس الملفات باقية كما هي.
+
+تعود حقوق التعديلات والملفات الجديدة إلى za7ef، وتُوزَّع بموجب رخصة
+GNU General Public License الإصدار الثالث (GPL-3.0)، وهي الرخصة ذاتها للمشروع الأصلي
+(انظر ملف LICENSE). ووفق البند 5(أ) من الرخصة، يحمل كل ملف معدَّل في رأسه إشعارًا بالتعديل
+وتاريخه، ويحمل كل ملف جديد إشعار حقوق النشر.
+
+This project is a modified version of Feather, licensed under GPL-3.0.
+Modifications and new files: Copyright © 2026 za7ef.
+Original Feather code remains copyright of its respective authors.

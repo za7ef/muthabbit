@@ -5,6 +5,9 @@
 //  Created by samara on 5/17/24.
 //  Copyright (c) 2024 Samara M (khcrysalis)
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import NukeUI

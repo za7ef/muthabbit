@@ -4,6 +4,8 @@
 //
 //  Terms of Use and Privacy Policy pages.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 

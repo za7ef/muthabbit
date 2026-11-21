@@ -4,6 +4,9 @@
 //
 //  Created by samsam on 7/26/25.
 //
+//  Modified by za7ef, 2026.
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 
 import SwiftUI

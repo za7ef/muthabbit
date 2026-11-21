@@ -26,4 +26,6 @@ https://raw.githubusercontent.com/za7ef/apps-source/main/source.json
 
 هذا المشروع نسخة معدّلة ومبسّطة من مشروع [Feather](https://github.com/claration/feather)، ويُوزَّع بموجب رخصة GNU General Public License الإصدار الثالث (GPL-3.0). وتبقى حقوق المكتبات المستخدمة لأصحابها وفق تراخيصها.
 
+حقوق النشر للتعديلات: Copyright © 2026 za7ef، وتُوزَّع التعديلات بموجب رخصة GPL-3.0 ذاتها. وتبقى حقوق الشيفرة الأصلية لمؤلفي مشروع Feather، وقد حُفظت إشعاراتهم كما هي، وأُضيف إلى رأس كل ملف معدَّل إشعار يبيّن التعديل وتاريخه وفق البند 5(أ) من الرخصة. وتفاصيل ذلك في ملف [NOTICE](NOTICE).
+
 المطوّر: [za7ef](https://github.com/za7ef)

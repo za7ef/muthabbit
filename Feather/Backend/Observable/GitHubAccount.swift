@@ -7,6 +7,8 @@
 //  exposed as an in-memory AltStore-style repository so the regular store,
 //  one-tap install and update tracking can be reused.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import Security

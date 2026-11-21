@@ -4,6 +4,8 @@
 //
 //  Checks the latest GitHub release of the app itself and offers the update.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import UIKit

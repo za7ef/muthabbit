@@ -5,6 +5,8 @@
 //  Versions from a GitHub repo's releases (.ipa assets) and the repo description,
 //  for source apps that link a GitHub repo. Cached for an hour.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import AltSourceKit

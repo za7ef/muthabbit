@@ -4,6 +4,8 @@
 //
 //  Interface language: follows the system by default, or a language chosen in Settings.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import Foundation
 import SwiftUI

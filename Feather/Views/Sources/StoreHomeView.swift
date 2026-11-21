@@ -4,6 +4,8 @@
 //
 //  App Store "Today"-style home for the store tab.
 //
+//  Copyright © 2026 za7ef. Licensed under GPL-3.0.
+//
 
 import SwiftUI
 import CoreData
