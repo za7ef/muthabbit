@@ -257,9 +257,18 @@ extension DownloadManager: URLSessionDownloadDelegate {
 			return
 		}
 		
+		let cancelled = (error as? URLError)?.code == .cancelled
 		DispatchQueue.main.async {
 			if let index = self.getDownloadIndex(by: download.id) {
 				self.downloads.remove(at: index)
+			}
+			// Report network failures so the install flow does not stay stuck on "downloading".
+			if !cancelled {
+				NotificationCenter.default.post(
+					name: Notification.Name("Muthabbit.importFinished"),
+					object: nil,
+					userInfo: ["id": download.id, "error": error?.localizedDescription ?? "تعذّر التنزيل."]
+				)
 			}
 		}
 	}

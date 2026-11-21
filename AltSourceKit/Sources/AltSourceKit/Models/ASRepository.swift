@@ -182,6 +182,12 @@ extension ASRepository {
 		public var screenshots: Screenshots?
 
 		public var screenshotURLs: [URL]?
+		/// ryP0-style extras.
+		public var githubURL: URL?
+		public var backupDownloadURL: URL?
+		public var backupSize: Int64?
+		
+		private struct _Backup: Decodable { let downloadURL: URL?; let size: Int64? }
 		
 		public var marketplaceID: String?
 
@@ -291,7 +297,12 @@ extension ASRepository {
 			)
 
 			self.screenshotURLs =
-				try container.decodeIfPresent([URL].self, forKey: .screenshotURLs)
+				try? container.decodeIfPresent([URL].self, forKey: .screenshotURLs)
+			self.githubURL = try? container.decodeIfPresent(URL.self, forKey: .githubURL)
+			if let backup = try? container.decodeIfPresent(_Backup.self, forKey: .backup) {
+				self.backupDownloadURL = backup.downloadURL
+				self.backupSize = backup.size
+			}
 			
 			if
 				let marketplaceID = try container.decodeIfPresent(String.self, forKey: .marketplaceID),
@@ -352,6 +363,7 @@ extension ASRepository {
 			case permissions, appPermissions
 			case screenshots, screenshotURLs
 			case marketplaceID
+			case githubURL, backup
 		}
 		
 		/// Latest stable (official) version; falls back to the latest beta when no stable version exists.

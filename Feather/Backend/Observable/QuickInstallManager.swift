@@ -20,6 +20,15 @@ enum QuickInstallState: Equatable {
 	case signing
 	case installing
 	case failed(String)
+	
+	var progressText: String {
+		switch self {
+		case .downloading: return "جارٍ التنزيل…"
+		case .signing: return "جارٍ التوقيع…"
+		case .installing: return "جارٍ التثبيت…"
+		case .failed: return ""
+		}
+	}
 }
 
 @MainActor
@@ -69,6 +78,8 @@ final class QuickInstallManager: ObservableObject {
 	/// Per download job: Imported uuids that existed before it started, and the expected version.
 	private var _jobBefore: [String: Set<String>] = [:]
 	private var _jobExpected: [String: String] = [:]
+	/// Fallback download (ryP0 "backup.downloadURL") used once if the main download fails.
+	private var _backup: [String: (URL, SourceAppProvenance?)] = [:]
 	
 	private func _allImportedUUIDs() -> Set<String> {
 		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
@@ -137,9 +148,11 @@ final class QuickInstallManager: ObservableObject {
 		downloadID: String,
 		key: String,
 		provenance: SourceAppProvenance?,
-		isUpdate: Bool = false
+		isUpdate: Bool = false,
+		backupURL: URL? = nil
 	) {
 		if let current = states[key], !current.isFailed { return }
+		if let backupURL { _backup[downloadID] = (backupURL, provenance) }
 		_pending[downloadID] = (key, isUpdate)
 		_jobBefore[downloadID] = _allImportedUUIDs()
 		if let v = provenance?.sourceAppVersion {
@@ -193,9 +206,18 @@ final class QuickInstallManager: ObservableObject {
 		downloadIDs[pending.key] = nil
 		
 		if let error {
+			if let (url, prov) = _backup.removeValue(forKey: downloadID) {
+				_pending[downloadID] = pending
+				downloadIDs[pending.key] = downloadID
+				_ = DownloadManager.shared.startDownload(from: url, id: downloadID, sourceProvenance: prov)
+				return
+			}
+			_jobBefore[downloadID] = nil
+			_jobExpected[downloadID] = nil
 			_fail(pending.key, error)
 			return
 		}
+		_backup[downloadID] = nil
 		
 		let before = _jobBefore.removeValue(forKey: downloadID) ?? []
 		let expected = _jobExpected.removeValue(forKey: downloadID)

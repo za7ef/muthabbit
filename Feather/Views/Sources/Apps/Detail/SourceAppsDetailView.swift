@@ -19,6 +19,13 @@ struct SourceAppsDetailView: View {
 	@State private var _isScreenshotPreviewPresented: Bool = false
 	@State private var _selectedScreenshotIndex: Int = 0
 	@State private var _isHeaderHidden: Bool = false
+	@State private var _readmeImages: [URL] = []
+	
+	/// Source screenshots, or images from the GitHub README when the source has none.
+	private var _previewURLs: [URL]? {
+		if let urls = app.screenshotURLs, !urls.isEmpty { return urls }
+		return _readmeImages.isEmpty ? nil : _readmeImages
+	}
 	
 	var currentDownload: Download? {
 		downloadManager.getDownload(by: app.currentUniqueId)
@@ -77,7 +84,7 @@ struct SourceAppsDetailView: View {
 				_infoStrip(app: app)
 				Divider()
                 
-				if let screenshotURLs = app.screenshotURLs {
+				if let screenshotURLs = _previewURLs, !screenshotURLs.isEmpty {
 					NBSection("معاينة") {
 						_screenshots(screenshotURLs: screenshotURLs)
 					}
@@ -233,8 +240,13 @@ struct SourceAppsDetailView: View {
 				UIActivityViewController.show(activityItems: [sharedString])
 			}
 		}
+		.task {
+			if (app.screenshotURLs ?? []).isEmpty, let gh = app.githubURL {
+				_readmeImages = await ReadmeImages.images(for: gh)
+			}
+		}
 		.fullScreenCover(isPresented: $_isScreenshotPreviewPresented) {
-			if let screenshotURLs = app.screenshotURLs {
+			if let screenshotURLs = _previewURLs {
 				ScreenshotPreviewView(
 					screenshotURLs: screenshotURLs,
 					initialIndex: _selectedScreenshotIndex

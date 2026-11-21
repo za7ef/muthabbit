@@ -27,9 +27,80 @@ struct DownloadButtonView: View {
 	@State private var downloadProgress: Double = 0
 	@State private var cancellable: AnyCancellable?
 
+	@State private var _startedAt: Date?
+	
 	var body: some View {
+		HStack(spacing: 8) {
+			_statusText
+			_button
+		}
+	}
+	
+	/// App Store-style secondary text: remaining time + sizes while downloading, step text after,
+	/// and the app size before install.
+	@ViewBuilder
+	private var _statusText: some View {
+		let download = downloadManager.getDownload(by: app.currentUniqueId)
+		if let download {
+			TimelineView(.periodic(from: .now, by: 1)) { context in
+				VStack(alignment: .trailing, spacing: 1) {
+					if let remaining = _remaining(download, now: context.date) {
+						Text(remaining).font(.caption2.weight(.semibold))
+					}
+					if download.totalBytes > 0 {
+						Text("\u{2066}\(_mb(download.bytesDownloaded)) / \(_mb(download.totalBytes))\u{2069} م.ب")
+							.font(.caption2)
+					}
+				}
+				.foregroundStyle(.secondary)
+				.monospacedDigit()
+			}
+			.onAppear { if _startedAt == nil { _startedAt = Date() } }
+		} else if let state = quickInstall.state(for: _key), !state.isFailed {
+			Text(state.progressText)
+				.font(.caption2)
+				.foregroundStyle(.secondary)
+				.onAppear { _startedAt = nil }
+		} else if
+			!(app.id.map { quickInstall.installedIDs.contains($0) } ?? false),
+			let bytes = app.size ?? app.currentAppVersion?.size.map(Int64.init) ?? app.backupSize,
+			bytes > 0
+		{
+			Text("\(_mb(bytes)) م.ب")
+				.font(.caption2)
+				.foregroundStyle(.tertiary)
+		}
+	}
+	
+	private func _mb(_ bytes: Int64) -> String {
+		String(format: "%.1f", Double(bytes) / 1_048_576)
+	}
+	
+	private func _remaining(_ d: Download, now: Date) -> String? {
+		guard let start = _startedAt, d.totalBytes > 0, d.bytesDownloaded > 0 else { return nil }
+		let elapsed = now.timeIntervalSince(start)
+		guard elapsed > 1 else { return nil }
+		let rate = Double(d.bytesDownloaded) / elapsed
+		let secs = Double(d.totalBytes - d.bytesDownloaded) / max(rate, 1)
+		if secs < 60 { return "أقل من دقيقة" }
+		let mins = Int(secs / 60)
+		let h = mins / 60, m = mins % 60
+		func minutes(_ n: Int) -> String {
+			switch n {
+			case 1: return "دقيقة"
+			case 2: return "دقيقتان"
+			case 3...10: return "\(n) دقائق"
+			default: return "\(n) دقيقة"
+			}
+		}
+		if h == 0 { return minutes(m) }
+		let hours = h == 1 ? "ساعة" : (h == 2 ? "ساعتان" : "\(h) ساعات")
+		return m == 0 ? hours : "\(hours) و\(minutes(m))"
+	}
+	
+	private var _button: some View {
 		ZStack {
-			if let currentDownload = downloadManager.getDownload(by: app.currentUniqueId) {
+			if let currentDownload = downloadManager.getDownload(by: app.currentUniqueId) ?? quickInstall.downloadIDs[_key].flatMap({ downloadManager.getDownload(by: $0) }) {
 				ZStack {
 					Circle()
 						.trim(from: 0, to: downloadProgress)
@@ -79,7 +150,8 @@ struct DownloadButtonView: View {
 							url: url,
 							downloadID: app.currentUniqueId,
 							key: _key,
-							provenance: _sourceProvenance()
+							provenance: _sourceProvenance(),
+							backupURL: app.backupDownloadURL
 						)
 					}
 				} label: {
