@@ -1,0 +1,65 @@
+name: البناء والإصدار
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Build
+        run: |
+          set -o pipefail
+          agvtool new-version -all ${{ github.run_number }}
+          make 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Read version
+        run: |
+          PLIST="$(ls -d _build/Payload/*.app)/Info.plist"
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$PLIST")
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$PLIST")
+          BUNDLE=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$PLIST")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD=$BUILD" >> $GITHUB_ENV
+          echo "Version $VERSION build $BUILD bundle $BUNDLE"
+          test "$BUILD" = "${{ github.run_number }}"
+          test "$BUNDLE" = "com.za7ef.muthabbit"
+          ls -la packages
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}-b${{ env.BUILD }}
+          name: مُثبِّت ${{ env.VERSION }} (البناء ${{ env.BUILD }})
+          body_path: RELEASE_NOTES.md
+          files: packages/Muthabbit.ipa
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
