@@ -205,17 +205,13 @@ final class QuickInstallManager: ObservableObject {
 	}
 	
 	private func _install(_ app: AppInfoPresentable, key: String, methodOverride: Int? = nil) {
-		if app.identifier == Bundle.main.bundleIdentifier {
-			states[key] = nil
-			UIAlertController.showAlertWithOk(
-				title: .localized("Install"),
-				message: "لا يمكن تحديث التطبيق من داخله. يمكن تثبيت التحديث الموقّع باستخدام أداة أخرى."
-			)
-			return
-		}
+		// Self-update: iOS (installd) fetches the whole IPA before it closes this app,
+		// so the itms-services server path works; idevice would be cut off mid-install.
+		let isSelf = app.identifier == Bundle.main.bundleIdentifier
+		
 		
 		// Process log enabled → show the regular progress screen.
-		if UserDefaults.standard.bool(forKey: Self.showProcessLogKey) {
+		if !isSelf, UserDefaults.standard.bool(forKey: Self.showProcessLogKey) {
 			states[key] = nil
 			_presentProgressScreen(for: app)
 			return
@@ -231,7 +227,7 @@ final class QuickInstallManager: ObservableObject {
 		_installingKey = key
 		if let id = app.identifier { _bundleIDs[key] = id }
 		
-		let isIdevice = UserDefaults.standard.integer(forKey: "Feather.installationMethod") == 1
+		let isIdevice = !isSelf && UserDefaults.standard.integer(forKey: "Feather.installationMethod") == 1
 		let viewModel = InstallerStatusViewModel(isIdevice: isIdevice)
 		_viewModel = viewModel
 		
