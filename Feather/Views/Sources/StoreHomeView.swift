@@ -10,6 +10,7 @@ import CoreData
 import AltSourceKit
 import NimbleViews
 import NukeUI
+import Nuke
 
 struct StoreAppEntry: Identifiable {
 	let id: String
@@ -30,7 +31,11 @@ struct StoreHomeView: View {
 		animation: .snappy
 	) private var _sources: FetchedResults<AltSource>
 	
-	private var _entries: [StoreAppEntry] {
+	/// Built once per source change (not on every body pass / per row).
+	@State private var _entries: [StoreAppEntry] = []
+	@State private var _filtered: [StoreAppEntry] = []
+	
+	private func _buildEntries() -> [StoreAppEntry] {
 		var result: [StoreAppEntry] = []
 		var seen = Set<String>()
 		for source in _sources {
@@ -45,7 +50,11 @@ struct StoreHomeView: View {
 		return result.sorted { $0.app.currentName.localizedCompare($1.app.currentName) == .orderedAscending }
 	}
 	
-	private var _filtered: [StoreAppEntry] {
+	private func _refilter() {
+		_filtered = _computeFiltered()
+	}
+	
+	private func _computeFiltered() -> [StoreAppEntry] {
 		guard !_searchText.isEmpty else { return _entries }
 		return _entries.filter {
 			$0.app.currentName.localizedCaseInsensitiveContains(_searchText)
@@ -88,22 +97,31 @@ struct StoreHomeView: View {
 					}
 					
 					if !_filtered.isEmpty {
-						VStack(alignment: .leading, spacing: 0) {
-							Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
-								.font(.title2.bold())
-								.padding(.bottom, 8)
-							ForEach(_filtered) { entry in
+						Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
+							.font(.title2.bold())
+							.padding(.horizontal, 20)
+							.padding(.bottom, -14)
+						// Rows are direct children of the LazyVStack, so only visible rows are built.
+						let lastID = _filtered.last?.id
+						ForEach(_filtered) { entry in
+							VStack(spacing: 0) {
 								_row(entry)
-								if entry.id != _filtered.last?.id {
+								if entry.id != lastID {
 									Divider().padding(.leading, 76)
 								}
 							}
+							.padding(.horizontal, 20)
+							.padding(.bottom, -22)
 						}
-						.padding(.horizontal, 20)
 					}
 				}
 				.padding(.vertical, 8)
 			}
+			.onAppear { _entries = _buildEntries(); _refilter() }
+			.onChange(of: viewModel.sources.count) { _ in _entries = _buildEntries(); _refilter() }
+			.onChange(of: viewModel.isFinished) { _ in _entries = _buildEntries(); _refilter() }
+			.onChange(of: _sources.count) { _ in _entries = _buildEntries(); _refilter() }
+			.onChange(of: _searchText) { _ in _refilter() }
 			.navigationTitle("المتجر")
 			.navigationBarTitleDisplayMode(.large)
 			.searchable(text: $_searchText, prompt: "ابحث في التطبيقات")
@@ -130,6 +148,7 @@ struct StoreHomeView: View {
 			}
 			.refreshable {
 				await viewModel.fetchSources(_sources, refresh: true)
+				_entries = _buildEntries(); _refilter()
 				await AutoUpdateChecker.checkNow(force: true)
 			}
 			.sheet(isPresented: $_isSourcesPresenting) {
@@ -195,7 +214,6 @@ struct StoreHomeView: View {
 				}
 			)
 			.clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-			.shadow(color: .black.opacity(0.15), radius: 12, y: 6)
 		}
 		.buttonStyle(.plain)
 		.padding(.horizontal, 20)
@@ -208,12 +226,12 @@ struct StoreHomeView: View {
 		} label: {
 			ZStack(alignment: .bottom) {
 				ZStack {
-					_icon(entry.app.iconURL, size: 220)
-						.blur(radius: 40)
+					// Cheap "blurred" backdrop: a tiny icon scaled up (no live blur pass while scrolling).
+					_icon(entry.app.iconURL, size: 8, thumb: true)
+						.scaleEffect(30)
 						.opacity(0.7)
 					Color.black.opacity(0.25)
 					_icon(entry.app.iconURL, size: 96)
-						.shadow(radius: 10)
 						.offset(y: -24)
 				}
 				.frame(height: 230)
@@ -275,8 +293,10 @@ struct StoreHomeView: View {
 	}
 	
 	@ViewBuilder
-	private func _icon(_ url: URL?, size: CGFloat) -> some View {
-		LazyImage(url: url) { state in
+	private func _icon(_ url: URL?, size: CGFloat, thumb: Bool = false) -> some View {
+		// Decoded and downsampled once to the displayed size, then served from Nuke's memory cache.
+		let px = (thumb ? 8 : size) * UIScreen.main.scale
+		LazyImage(request: url.map { ImageRequest(url: $0, processors: [.resize(size: CGSize(width: px, height: px), unit: .pixels)]) }) { state in
 			if let image = state.image {
 				image.resizable().scaledToFill()
 			} else {
