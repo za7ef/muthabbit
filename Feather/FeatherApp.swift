@@ -16,7 +16,6 @@ struct FeatherApp: App {
 	
 	let heartbeat = HeartbeatManager.shared
 	
-	@StateObject var downloadManager = DownloadManager.shared
 	let storage = Storage.shared
 	
 	init() {
