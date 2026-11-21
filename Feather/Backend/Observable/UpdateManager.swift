@@ -53,7 +53,14 @@ final class UpdateManager: ObservableObject {
 			lastCheckedDate = Date()
 		}
 		
-		let repositories = await _fetchRepositories(from: sources)
+		var repositories: [(URL, ASRepository)] = await _fetchRepositories(from: sources)
+			.compactMap { pair in pair.0.sourceURL.map { ($0, pair.1) } }
+		if GitHubAccount.shared.isSignedIn {
+			await GitHubAccount.shared.loadProjects()
+			if let projects = GitHubAccount.shared.projects {
+				repositories.append((GitHubAccount.projectsSourceURL, projects))
+			}
+		}
 		updates = _findUpdates(repositories: repositories, localApps: localApps)
 	}
 	
@@ -89,7 +96,7 @@ final class UpdateManager: ObservableObject {
 	}
 	
 	private func _findUpdates(
-		repositories: [(AltSource, ASRepository)],
+		repositories: [(URL, ASRepository)],
 		localApps: [AppInfoPresentable]
 	) -> [String: AppUpdate] {
 		var foundUpdates: [String: AppUpdate] = [:]
@@ -156,10 +163,8 @@ final class UpdateManager: ObservableObject {
 				continue
 			}
 			
-			for (source, repository) in repositories {
-				guard let sourceURL = source.sourceURL else {
-					continue
-				}
+			for (sourceURL, repository) in repositories {
+
 				
 				guard _matchesStoredRepository(storedSourceURL: storedSourceURL, sourceURL: sourceURL) else {
 					continue
