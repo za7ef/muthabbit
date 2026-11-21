@@ -34,6 +34,8 @@ struct StoreHomeView: View {
 	/// Built once per source change (not on every body pass / per row).
 	@State private var _entries: [StoreAppEntry] = []
 	@State private var _filtered: [StoreAppEntry] = []
+	/// Infinite scroll: how many rows are rendered so far (pages of 30).
+	@State private var _limit = 30
 	
 	private func _buildEntries() -> [StoreAppEntry] {
 		var result: [StoreAppEntry] = []
@@ -52,6 +54,7 @@ struct StoreHomeView: View {
 	
 	private func _refilter() {
 		_filtered = _computeFiltered()
+		_limit = 30
 	}
 	
 	private func _computeFiltered() -> [StoreAppEntry] {
@@ -102,8 +105,10 @@ struct StoreHomeView: View {
 							.padding(.horizontal, 20)
 							.padding(.bottom, -14)
 						// Rows are direct children of the LazyVStack, so only visible rows are built.
+						let page = Array(_filtered.prefix(_limit))
 						let lastID = _filtered.last?.id
-						ForEach(_filtered) { entry in
+						let pageLastID = page.last?.id
+						ForEach(page) { entry in
 							VStack(spacing: 0) {
 								_row(entry)
 								if entry.id != lastID {
@@ -112,6 +117,16 @@ struct StoreHomeView: View {
 							}
 							.padding(.horizontal, 20)
 							.padding(.bottom, -22)
+							.onAppear {
+								if entry.id == pageLastID, _limit < _filtered.count {
+									_limit += 30
+								}
+							}
+						}
+						if _limit < _filtered.count {
+							ProgressView()
+								.frame(maxWidth: .infinity)
+								.padding(.top, 30)
 						}
 					}
 				}
