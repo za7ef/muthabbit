@@ -18,6 +18,7 @@ struct LibraryView: View {
 	@ObservedObject private var _updateManager = UpdateManager.shared
 	@ObservedObject private var _quickInstall = QuickInstallManager.shared
 	@State private var _searchText = ""
+	@State private var _isImporting = false
 	
 	@FetchRequest(
 		entity: Signed.entity(),
@@ -101,9 +102,27 @@ struct LibraryView: View {
 					}
 					.accessibilityLabel("الموقّعة")
 				}
+				ToolbarItem(placement: .topBarTrailing) {
+					Button {
+						_isImporting = true
+					} label: {
+						Image(systemName: "plus")
+					}
+					.accessibilityLabel("تثبيت ملف IPA")
+				}
 			}
 		}
 		.task { await AutoUpdateChecker.checkNow() }
+		.sheet(isPresented: $_isImporting) {
+			FileImporterRepresentableView(
+				allowedContentTypes: [.ipa, .tipa],
+				allowsMultipleSelection: true,
+				onDocumentsPicked: { urls in
+					urls.forEach { _quickInstall.installLocalFile($0) }
+				}
+			)
+			.ignoresSafeArea()
+		}
 	}
 	
 	// MARK: Banner

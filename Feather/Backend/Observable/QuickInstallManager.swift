@@ -178,6 +178,22 @@ final class QuickInstallManager: ObservableObject {
 		)
 	}
 	
+	/// "+" in تطبيقاتي: an .ipa picked from Files → import → sign → install.
+	func installLocalFile(_ url: URL) {
+		let id = "Muthabbit_Local_\(UUID().uuidString)"
+		_pending[id] = (id, false)
+		_jobBefore[id] = _allImportedUUIDs()
+		states[id] = .downloading
+		let dl = DownloadManager.shared.startArchive(from: url, id: id)
+		do {
+			try DownloadManager.shared.handlePachageFile(url: url, dl: dl)
+		} catch {
+			_pending[id] = nil
+			_jobBefore[id] = nil
+			_fail(id, error.localizedDescription)
+		}
+	}
+	
 	/// Install button for an app already in the library.
 	func installExisting(_ app: AppInfoPresentable) {
 		let key = app.identifier ?? app.uuid ?? UUID().uuidString
