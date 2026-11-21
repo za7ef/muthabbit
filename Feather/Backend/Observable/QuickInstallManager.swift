@@ -562,9 +562,18 @@ final class QuickInstallManager: ObservableObject {
 	private func _pollInstall(bundleID: String, viewModel: InstallerStatusViewModel) -> Task<Void, Never> {
 		Task.detached(priority: .background) {
 			var hasStarted = false
+			let begin = Date()
 			while !Task.isCancelled {
 				let raw = await UIApplication.installProgress(for: bundleID) ?? 0.0
 				if raw > 0 { hasStarted = true }
+				// Never poll forever: iOS did not start (2 min) or did not finish (10 min).
+				let elapsed = Date().timeIntervalSince(begin)
+				if (!hasStarted && elapsed > 120) || elapsed > 600 {
+					await MainActor.run {
+						viewModel.status = .broken(NSError(domain: "Muthabbit", code: 1, userInfo: [NSLocalizedDescriptionKey: "لم يكتمل التثبيت. يمكن المحاولة مجددًا."]))
+					}
+					break
+				}
 				if hasStarted && raw == 0 {
 					await MainActor.run {
 						viewModel.status = .completed(.success(()))

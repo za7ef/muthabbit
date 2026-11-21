@@ -170,7 +170,7 @@ struct DownloadButtonView: View {
 		}
 		.onAppear(perform: setupObserver)
 		.onDisappear { cancellable?.cancel() }
-		.onChange(of: downloadManager.downloads.description) { _ in
+		.onChange(of: downloadManager.downloads.count) { _ in
 			setupObserver()
 		}
 		.animation(.easeInOut(duration: 0.3), value: downloadManager.getDownload(by: app.currentUniqueId) != nil)

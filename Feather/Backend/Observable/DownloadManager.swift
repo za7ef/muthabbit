@@ -23,6 +23,8 @@ class Download: Identifiable, @unchecked Sendable {
 	}
 	
 	var task: URLSessionDownloadTask?
+	/// Last time progress was published (throttles UI updates to ~10/s).
+	var lastProgressTick: CFAbsoluteTime = 0
 	var resumeData: Data?
 	
 	let id: String
@@ -232,6 +234,12 @@ extension DownloadManager: URLSessionDownloadDelegate {
 	
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
 		guard let download = getDownloadTask(by: downloadTask) else { return }
+		// URLSession reports every chunk (many times a second); publishing each one re-rendered
+		// every observer on the main thread. Publish at most every 0.1 s, plus the final chunk.
+		let now = CFAbsoluteTimeGetCurrent()
+		let isLast = totalBytesExpectedToWrite > 0 && totalBytesWritten >= totalBytesExpectedToWrite
+		guard isLast || now - download.lastProgressTick >= 0.1 else { return }
+		download.lastProgressTick = now
 		
 		DispatchQueue.main.async {
 			download.progress = totalBytesExpectedToWrite > 0

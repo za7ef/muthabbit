@@ -23,7 +23,7 @@ struct StoreAppEntry: Identifiable {
 }
 
 struct StoreHomeView: View {
-	@StateObject private var viewModel = SourcesViewModel.shared
+	@ObservedObject private var viewModel = SourcesViewModel.shared
 	@State private var _isSourcesPresenting = false
 	@State private var _searchText = ""
 	@ObservedObject private var _github = GitHubAccount.shared
