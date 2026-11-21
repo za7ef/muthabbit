@@ -20,6 +20,28 @@ struct SourceAppsDetailView: View {
 	@State private var _selectedScreenshotIndex: Int = 0
 	@State private var _isHeaderHidden: Bool = false
 	@State private var _readmeImages: [URL] = []
+	@State private var _ghVersions: [ASRepository.App.Version] = []
+	@State private var _ghDescription: String?
+	
+	/// Source versions plus GitHub release versions, deduped by version string, newest first.
+	private var _allVersions: [ASRepository.App.Version] {
+		var seen = Set<String>()
+		var list: [ASRepository.App.Version] = []
+		for v in (app.versions ?? []) + _ghVersions where !seen.contains(v.version) {
+			seen.insert(v.version)
+			list.append(v)
+		}
+		return list.sorted { a, b in
+			if let da = a.date?.date, let db = b.date?.date, da != db { return da > db }
+			return a.version.compare(b.version, options: .numeric) == .orderedDescending
+		}
+	}
+	
+	private var _description: String? {
+		let d = app.localizedDescription
+		let isPlaceholder = d == nil || d!.isEmpty || d!.hasPrefix("GitHub project request")
+		return isPlaceholder ? (_ghDescription ?? d) : d
+	}
 	
 	/// Source screenshots, or images from the GitHub README when the source has none.
 	private var _previewURLs: [URL]? {
@@ -122,36 +144,40 @@ struct SourceAppsDetailView: View {
 					Divider()
 				}
 				
-				if
-					let currentVer = app.currentVersion,
-					let whatsNewDesc = app.currentAppVersion?.localizedDescription
-				{
-					NBSection(.localized("What's New")) {
+				// Always shown: «جميع الإصدارات» lists source + GitHub release versions.
+				NBSection(.localized("What's New")) {
+					if
+						let currentVer = app.currentVersion,
+						let whatsNewDesc = app.currentAppVersion?.localizedDescription
+					{
 						AppVersionInfo(
 							version: currentVer,
 							date: app.currentDate?.date,
 							description: whatsNewDesc
 						)
-						if let versions = app.versions {
-							NavigationLink(
-								destination: VersionHistoryView(
-									sourceURL: sourceURL,
-									source: source,
-									app: app,
-									versions: versions
-								)
-									.navigationTitle("جميع الإصدارات")
-									.navigationBarTitleDisplayMode(.large)
-							) {
-								Text("جميع الإصدارات")
-							}
+					}
+					NavigationLink(
+						destination: VersionHistoryView(
+							sourceURL: sourceURL,
+							source: source,
+							app: app,
+							versions: _allVersions
+						)
+							.navigationTitle("جميع الإصدارات")
+							.navigationBarTitleDisplayMode(.large)
+					) {
+						HStack {
+							Text("جميع الإصدارات")
+							Spacer()
+							Text(_allVersions.count.formatted())
+								.foregroundStyle(.secondary)
 						}
 					}
-					
-					Divider()
 				}
 				
-				if let appDesc = app.localizedDescription {
+				Divider()
+				
+				if let appDesc = _description {
 					NBSection(.localized("Description")) {
 						VStack(alignment: .leading, spacing: 2) {
 							ExpandableText(text: appDesc, lineLimit: 3)
@@ -271,8 +297,14 @@ struct SourceAppsDetailView: View {
 			}
 		}
 		.task {
-			if (app.screenshotURLs ?? []).isEmpty, let gh = app.githubURL {
-				_readmeImages = await ReadmeImages.images(for: gh)
+			if let gh = app.githubRepoURL {
+				async let images: [URL] = (app.screenshotURLs ?? []).isEmpty ? ReadmeImages.images(for: gh) : []
+				async let versions = GitHubReleases.versions(for: gh)
+				let d = app.localizedDescription ?? ""
+				async let desc: String? = (d.isEmpty || d.hasPrefix("GitHub project request")) ? GitHubReleases.description(for: gh) : nil
+				_readmeImages = await images
+				_ghVersions = await versions
+				_ghDescription = await desc
 			}
 		}
 		.fullScreenCover(isPresented: $_isScreenshotPreviewPresented) {

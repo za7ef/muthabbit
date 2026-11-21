@@ -187,7 +187,16 @@ extension ASRepository {
 		public var backupDownloadURL: URL?
 		public var backupSize: Int64?
 		
+		public var importSourceURL: URL?
+		/// GitHub repo URL from githubURL, or importSource.sourceURL when it points to GitHub.
+		public var githubRepoURL: URL? {
+			if let githubURL, githubURL.host?.contains("github.com") == true { return githubURL }
+			if let importSourceURL, importSourceURL.host?.contains("github.com") == true { return importSourceURL }
+			return nil
+		}
+		
 		private struct _Backup: Decodable { let downloadURL: URL?; let size: Int64? }
+		private struct _ImportSource: Decodable { let sourceURL: URL? }
 		
 		public var marketplaceID: String?
 
@@ -299,6 +308,7 @@ extension ASRepository {
 			self.screenshotURLs =
 				try? container.decodeIfPresent([URL].self, forKey: .screenshotURLs)
 			self.githubURL = try? container.decodeIfPresent(URL.self, forKey: .githubURL)
+			self.importSourceURL = (try? container.decodeIfPresent(_ImportSource.self, forKey: .importSource))?.sourceURL
 			if let backup = try? container.decodeIfPresent(_Backup.self, forKey: .backup) {
 				self.backupDownloadURL = backup.downloadURL
 				self.backupSize = backup.size
@@ -363,7 +373,7 @@ extension ASRepository {
 			case permissions, appPermissions
 			case screenshots, screenshotURLs
 			case marketplaceID
-			case githubURL, backup
+			case githubURL, backup, importSource
 		}
 		
 		/// Latest stable (official) version; falls back to the latest beta when no stable version exists.
