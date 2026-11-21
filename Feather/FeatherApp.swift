@@ -31,8 +31,7 @@ struct FeatherApp: App {
 	var body: some Scene {
 		WindowGroup {
 			VStack {
-				DownloadHeaderView(downloadManager: downloadManager)
-					.transition(.move(edge: .top).combined(with: .opacity))
+				// No top download banner: progress shows inside the row / button that started it.
 				VariedTabbarView()
 					.environment(\.managedObjectContext, storage.context)
 					.onOpenURL(perform: _handleURL)
@@ -50,7 +49,6 @@ struct FeatherApp: App {
 				SelfUpdateManager.shared.checkOnLaunch()
 				await AutoUpdateChecker.checkNow()
 			}
-			.animation(.smooth, value: downloadManager.manualDownloads.description)
 			.onReceive(NotificationCenter.default.publisher(for: .heartbeatInvalidHost)) { _ in
 				DispatchQueue.main.async {
 					UIAlertController.showAlertWithOk(
