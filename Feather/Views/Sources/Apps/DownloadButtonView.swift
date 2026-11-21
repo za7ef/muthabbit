@@ -30,10 +30,30 @@ struct DownloadButtonView: View {
 	@State private var _startedAt: Date?
 	
 	var body: some View {
-		HStack(spacing: 8) {
-			_statusText
-			_button
+		// The button never shrinks or truncates; status text gives way instead.
+		if _isActive {
+			HStack(spacing: 8) {
+				_statusText
+					.lineLimit(1)
+					.minimumScaleFactor(0.7)
+				_button
+					.fixedSize()
+					.layoutPriority(1)
+			}
+		} else {
+			VStack(spacing: 2) {
+				_button
+					.fixedSize()
+					.layoutPriority(1)
+				_statusText
+					.lineLimit(1)
+					.minimumScaleFactor(0.7)
+			}
 		}
+	}
+	
+	private var _isActive: Bool {
+		downloadManager.getDownload(by: app.currentUniqueId) != nil || _isBusy
 	}
 	
 	/// App Store-style secondary text: remaining time + sizes while downloading, step text after,

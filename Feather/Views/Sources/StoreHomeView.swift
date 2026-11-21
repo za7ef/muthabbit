@@ -240,6 +240,7 @@ struct StoreHomeView: View {
 						startPoint: .topLeading,
 						endPoint: .bottomTrailing
 					)
+					HeroDriftBackground(urls: icons.compactMap(\.app.iconURL))
 					if let header = entry.source.headerURL {
 						LazyImage(url: header) { state in
 							if let image = state.image {
@@ -363,5 +364,52 @@ struct StoreHomeView: View {
 			RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
 				.stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
 		)
+	}
+}
+
+
+/// Slowly drifting, pre-blurred app icons behind the hero banner.
+/// Cheap: blurred once by Nuke (cached bitmaps), ~20 fps, paused when off-screen,
+/// when the app is not active, or when Reduce Motion is on.
+struct HeroDriftBackground: View {
+	let urls: [URL]
+	@Environment(\.accessibilityReduceMotion) private var _reduceMotion
+	@Environment(\.scenePhase) private var _scenePhase
+	@State private var _isVisible = false
+	@State private var _start = Date()
+	
+	private var _paused: Bool { _reduceMotion || !_isVisible || _scenePhase != .active }
+	
+	var body: some View {
+		GeometryReader { geo in
+			TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: _paused)) { context in
+				let t = context.date.timeIntervalSince(_start)
+				ZStack {
+					ForEach(Array(urls.prefix(4).enumerated()), id: \.offset) { index, url in
+						let phase = Double(index) * 1.7
+						let x = cos(t / (9 + Double(index) * 2) + phase) * geo.size.width * 0.3
+						let y = sin(t / (11 + Double(index) * 3) + phase) * geo.size.height * 0.22
+						LazyImage(request: ImageRequest(url: url, processors: [
+							ImageProcessors.Resize(size: CGSize(width: 96, height: 96), unit: .pixels),
+							ImageProcessors.GaussianBlur(radius: 10)
+						])) { state in
+							if let image = state.image {
+								image.resizable().scaledToFill()
+							}
+						}
+						.frame(width: geo.size.width * 0.55, height: geo.size.width * 0.55)
+						.clipShape(Circle())
+						.opacity(0.55)
+						.position(
+							x: geo.size.width * (0.2 + 0.2 * Double(index)) + x,
+							y: geo.size.height * (index.isMultiple(of: 2) ? 0.3 : 0.55) + y
+						)
+					}
+				}
+			}
+		}
+		.allowsHitTesting(false)
+		.onAppear { _isVisible = true }
+		.onDisappear { _isVisible = false }
 	}
 }
