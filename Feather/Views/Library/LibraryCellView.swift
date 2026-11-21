@@ -219,10 +219,12 @@ extension LibraryCellView {
 				EmptyView()
 			} else {
 				Button {
-					quickInstall.installExisting(app)
+					if let id = app.identifier {
+						UIApplication.openApp(with: id)
+					}
 				} label: {
 					FRExpirationPillView(
-						title: .localized("Install"),
+						title: "فتح",
 						revoked: false,
 						expiration: nil
 					)
@@ -235,7 +237,7 @@ extension LibraryCellView {
 	private func _startUpdateDownload(_ update: AppUpdate) {
 		_ = DownloadManager.shared.startDownload(
 			from: update.downloadURL,
-			id: "FeatherManualDownload_Update_\(update.localUUID)",
+			id: "Muthabbit_Update_\(update.localUUID)",
 			sourceProvenance: update.sourceProvenance
 		)
 	}

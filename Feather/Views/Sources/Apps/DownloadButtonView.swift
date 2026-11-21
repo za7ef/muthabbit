@@ -49,9 +49,29 @@ struct DownloadButtonView: View {
 				}
 				.compatTransition()
 			} else if _isBusy {
-				ProgressView()
-					.frame(width: 31, height: 31)
-					.compatTransition()
+				ZStack {
+					Circle()
+						.stroke(Color.accentColor.opacity(0.25), lineWidth: 2.3)
+					ProgressView()
+						.controlSize(.small)
+				}
+				.frame(width: 31, height: 31)
+				.compatTransition()
+			} else if let id = app.id, quickInstall.installedIDs.contains(id), !_hasUpdate(id) {
+				Button {
+					UIApplication.openApp(with: id)
+				} label: {
+					Text("فتح")
+						.lineLimit(0)
+						.font(.headline.bold())
+						.foregroundStyle(Color.accentColor)
+						.padding(.horizontal, 24)
+						.padding(.vertical, 6)
+						.background(Color(uiColor: .quaternarySystemFill))
+						.clipShape(Capsule())
+				}
+				.buttonStyle(.borderless)
+				.compatTransition()
 			} else {
 				Button {
 					if let url = app.currentDownloadUrl {
@@ -100,6 +120,10 @@ struct DownloadButtonView: View {
 		cancellable = publisher.sink { _, _ in
 			downloadProgress = download.overallProgress
 		}
+	}
+	
+	private func _hasUpdate(_ bundleID: String) -> Bool {
+		UpdateManager.shared.updates.values.contains { $0.bundleIdentifier == bundleID }
 	}
 	
 	private func _sourceProvenance() -> SourceAppProvenance? {

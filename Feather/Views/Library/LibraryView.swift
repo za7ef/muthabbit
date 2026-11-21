@@ -1,372 +1,273 @@
 //
-//  ContentView.swift
-//  Feather
+//  LibraryView.swift
+//  Muthabbit
 //
-//  Created by samara on 10.04.2025.
+//  «تطبيقاتي»: App Store / SideStore-style list of confirmed installs.
+//  Top: updates banner + apps with updates (yellow «تحديث» pill that fills with progress,
+//  turns green «مثبّت», then the card moves down). Below: installed apps with «فتح».
+//  Signed-only copies live in «الموقّعة».
 //
 
 import SwiftUI
 import CoreData
 import NimbleViews
+import NukeUI
 
-// MARK: - View
 struct LibraryView: View {
-	@StateObject var downloadManager = DownloadManager.shared
-	@StateObject var updateManager = UpdateManager.shared
+	@ObservedObject private var _updateManager = UpdateManager.shared
 	@ObservedObject private var _quickInstall = QuickInstallManager.shared
-	
-	@State private var _selectedInfoAppPresenting: AnyApp?
-	@State private var _selectedSigningAppPresenting: AnyApp?
-	@State private var _selectedInstallAppPresenting: AnyApp?
-	@State private var _isImportingPresenting = false
-	@State private var _isDownloadingPresenting = false
-	@State private var _alertDownloadString: String = "" // for _isDownloadingPresenting
-	@State private var _updateCheckRotation = 0.0
-	@State private var _isUpdateCheckCompleteVisible = false
-	
-	// MARK: Selection State
-	@State private var _selectedAppUUIDs: Set<String> = []
-	@State private var _editMode: EditMode = .inactive
-	
 	@State private var _searchText = ""
-	@State private var _selectedScope: Scope = .all
 	
-	
-	@Namespace private var _namespace
-	
-	// horror
-	private func filteredAndSortedApps<T>(from apps: FetchedResults<T>) -> [T] where T: NSManagedObject {
-		apps.filter {
-			_searchText.isEmpty ||
-				(($0.value(forKey: "name") as? String)?.localizedCaseInsensitiveContains(_searchText) ?? false)
-		}
-	}
-	
-	/// Only apps with a confirmed install, newest copy per bundle id.
-	private var _filteredSignedApps: [Signed] {
-		var seen = Set<String>()
-		return filteredAndSortedApps(from: _signedApps).filter { app in
-			guard let id = app.identifier, _quickInstall.installedIDs.contains(id), !seen.contains(id) else { return false }
-			seen.insert(id)
-			return true
-		}
-	}
-	
-	private var _filteredImportedApps: [Imported] {
-		filteredAndSortedApps(from: _importedApps)
-	}
-	
-	// MARK: Fetch
 	@FetchRequest(
 		entity: Signed.entity(),
 		sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)],
 		animation: .snappy
 	) private var _signedApps: FetchedResults<Signed>
 	
-	@FetchRequest(
-		entity: Imported.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \Imported.date, ascending: false)],
-		animation: .snappy
-	) private var _importedApps: FetchedResults<Imported>
+	/// Confirmed installs, one per bundle id (newest copy).
+	private var _installed: [Signed] {
+		var seen = Set<String>()
+		return _signedApps.filter { app in
+			guard
+				let id = app.identifier,
+				_quickInstall.installedIDs.contains(id),
+				!seen.contains(id)
+			else { return false }
+			seen.insert(id)
+			if _searchText.isEmpty { return true }
+			return (app.name ?? "").localizedCaseInsensitiveContains(_searchText)
+		}
+	}
 	
-	@FetchRequest(
-		entity: AltSource.entity(),
-		sortDescriptors: [NSSortDescriptor(keyPath: \AltSource.name, ascending: true)],
-		animation: .snappy
-	) private var _sources: FetchedResults<AltSource>
+	private func _key(_ app: Signed) -> String {
+		_updateManager.update(for: app)?.bundleIdentifier ?? app.identifier ?? app.uuid ?? ""
+	}
 	
-	// MARK: Body
+	/// Stays in the top section while updating or just finished, so it can turn green before moving.
+	private func _isInUpdatesSection(_ app: Signed) -> Bool {
+		let key = _key(app)
+		return _updateManager.update(for: app) != nil
+			|| _quickInstall.justFinished.contains(key)
+			|| (_quickInstall.state(for: key).map { !$0.isFailed } ?? false)
+	}
+	
+	private var _withUpdates: [Signed] { _installed.filter { _isInUpdatesSection($0) } }
+	private var _upToDate: [Signed] { _installed.filter { !_isInUpdatesSection($0) } }
+	
 	var body: some View {
 		NBNavigationView("تطبيقاتي") {
-			NBListAdaptable {
-				if !updateManager.updates.isEmpty, _searchText.isEmpty {
-					Section {
-						ForEach(Array(updateManager.updates.values).sorted { $0.appName < $1.appName }) { update in
-							HStack {
-								VStack(alignment: .leading, spacing: 2) {
-									Text(update.appName)
-										.font(.headline)
-									Text("\u{2066}\(update.localVersion ?? "—") → \(update.remoteVersion)\u{2069}")
-										.font(.footnote)
-										.foregroundStyle(.secondary)
-								}
-								Spacer()
-								if
-									let state = QuickInstallManager.shared.state(for: update.bundleIdentifier),
-									!state.isFailed
-								{
-									ProgressView()
-								} else {
-									Button {
-										QuickInstallManager.shared.installUpdate(update)
-									} label: {
-										Text("تحديث")
-											.font(.subheadline.bold())
-											.padding(.horizontal, 18)
-											.padding(.vertical, 6)
-											.background(Color.accentColor, in: Capsule())
-											.foregroundStyle(.white)
-									}
-									.buttonStyle(.borderless)
-								}
-							}
+			ScrollView {
+				VStack(alignment: .leading, spacing: 14) {
+					_banner
+					
+					if !_withUpdates.isEmpty {
+						_header("التحديثات المتوفرة")
+						ForEach(_withUpdates, id: \.objectID) { app in
+							_card(app)
+								.transition(.move(edge: .bottom).combined(with: .opacity))
 						}
-					} header: {
-						HStack {
-							Text("التحديثات المتوفرة (\(updateManager.updates.count))")
-							Spacer()
-							Button("تحديث الكل") {
-								for update in updateManager.updates.values {
-									QuickInstallManager.shared.installUpdate(update)
-								}
-							}
-							.font(.footnote.bold())
-						}
-					}
-				}
-				
-				if
-					!_filteredSignedApps.isEmpty,
-					_selectedScope == .all || _selectedScope == .signed
-				{
-					NBSection(
-						"التطبيقات المثبّتة",
-						secondary: _filteredSignedApps.count.description
-					) {
-						ForEach(_filteredSignedApps, id: \.uuid) { app in
-							LibraryCellView(
-								app: app,
-								selectedInfoAppPresenting: $_selectedInfoAppPresenting,
-								selectedSigningAppPresenting: $_selectedSigningAppPresenting,
-								selectedInstallAppPresenting: $_selectedInstallAppPresenting,
-								selectedAppUUIDs: $_selectedAppUUIDs
-							)
-							.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-						}
-					}
-				}
-				
-				if
-					false,
-					!_filteredImportedApps.isEmpty
-				{
-					NBSection(
-						.localized("Imported"),
-						secondary: _filteredImportedApps.count.description
-					) {
-						ForEach(_filteredImportedApps, id: \.uuid) { app in
-							LibraryCellView(
-								app: app,
-								selectedInfoAppPresenting: $_selectedInfoAppPresenting,
-								selectedSigningAppPresenting: $_selectedSigningAppPresenting,
-								selectedInstallAppPresenting: $_selectedInstallAppPresenting,
-								selectedAppUUIDs: $_selectedAppUUIDs
-							)
-							.compatMatchedTransitionSource(id: app.uuid ?? "", ns: _namespace)
-						}
-					}
-				}
-			}
-			.searchable(text: $_searchText, placement: .platform())
-			.scrollDismissesKeyboard(.interactively)
-			.overlay {
-				if
-					_filteredSignedApps.isEmpty
-				{
-					if #available(iOS 17, *) {
-						ContentUnavailableView {
-							Label("لا توجد تطبيقات مثبّتة", systemImage: "square.grid.2x2")
-						} description: {
-							Text("تظهر هنا التطبيقات المثبّتة من «المتجر» أو «مشاريعي».")
-						}
-					}
-				}
-			}
-			.toolbar {
-				ToolbarItem(placement: .topBarLeading) {
-					EditButton()
-				}
-				
-				if _editMode.isEditing {
-					NBToolbarButton(
-						.localized("Delete"),
-						systemImage: "trash",
-						isDisabled: _selectedAppUUIDs.isEmpty
-					) {
-						_bulkDeleteSelectedApps()
-					}
-				} else {
-					ToolbarItem(placement: .topBarTrailing) {
-						Button {
-							Task {
-								await _checkForUpdates()
-							}
-						} label: {
-							Image(systemName: _isUpdateCheckCompleteVisible ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
-								.rotationEffect(.degrees(_updateCheckRotation))
-								.animation(
-									updateManager.isChecking
-										? .linear(duration: 0.8).repeatForever(autoreverses: false)
-										: .default,
-									value: _updateCheckRotation
-								)
-						}
-						.disabled(updateManager.isChecking)
-						.accessibilityLabel(.localized("Check for Updates"))
 					}
 					
-					NBToolbarMenu(
-						systemImage: "plus",
-						style: .icon,
-						placement: .topBarTrailing
-					) {
-						_importActions()
-					}
-				}
-			}
-			.environment(\.editMode, $_editMode)
-			.sheet(item: $_selectedInfoAppPresenting) { app in
-				LibraryInfoView(app: app.base)
-			}
-			.sheet(item: $_selectedInstallAppPresenting) { app in
-				InstallPreviewView(app: app.base, isSharing: app.archive)
-					.presentationDetents([.height(200)])
-					.presentationDragIndicator(.visible)
-			}
-			.fullScreenCover(item: $_selectedSigningAppPresenting) { app in
-				SigningView(app: app.base)
-					.compatNavigationTransition(id: app.base.uuid ?? "", ns: _namespace)
-			}
-			.sheet(isPresented: $_isImportingPresenting) {
-				FileImporterRepresentableView(
-					allowedContentTypes:  [.ipa, .tipa],
-					allowsMultipleSelection: true,
-					onDocumentsPicked: { urls in
-						guard !urls.isEmpty else { return }
-						
-						for url in urls {
-							let id = "FeatherManualDownload_\(UUID().uuidString)"
-							let dl = downloadManager.startArchive(from: url, id: id)
-							try? downloadManager.handlePachageFile(url: url, dl: dl)
+					if !_upToDate.isEmpty {
+						_header("التطبيقات المثبّتة")
+						ForEach(_upToDate, id: \.objectID) { app in
+							_card(app)
+								.transition(.move(edge: .top).combined(with: .opacity))
 						}
 					}
-				)
-				.ignoresSafeArea()
-			}
-			.alert(.localized("Import from URL"), isPresented: $_isDownloadingPresenting) {
-				TextField(.localized("URL"), text: $_alertDownloadString)
-					.textInputAutocapitalization(.never)
-				Button(.localized("Cancel"), role: .cancel) {
-					_alertDownloadString = ""
 				}
-				Button(.localized("OK")) {
-					if let url = URL(string: _alertDownloadString) {
-						_ = downloadManager.startDownload(from: url, id: "FeatherManualDownload_\(UUID().uuidString)")
+				.padding(.horizontal, 20)
+				.padding(.bottom, 24)
+				.animation(.snappy, value: _withUpdates.map(\.objectID))
+			}
+			.searchable(text: $_searchText, placement: .platform())
+			.overlay {
+				if _installed.isEmpty, _searchText.isEmpty, #available(iOS 17, *) {
+					ContentUnavailableView(
+						"لا توجد تطبيقات مثبّتة",
+						systemImage: "square.grid.2x2",
+						description: Text("تظهر هنا التطبيقات المثبّتة من «المتجر» أو «مشاريعي».")
+					)
+				}
+			}
+			.refreshable { await AutoUpdateChecker.checkNow(force: true) }
+			.toolbar {
+				ToolbarItem(placement: .topBarTrailing) {
+					NavigationLink {
+						SignedAppsView()
+					} label: {
+						Image(systemName: "signature")
+					}
+					.accessibilityLabel("الموقّعة")
+				}
+			}
+		}
+		.task { await AutoUpdateChecker.checkNow() }
+	}
+	
+	// MARK: Banner
+	
+	@ViewBuilder
+	private var _banner: some View {
+		let count = _updateManager.updates.count
+		Button {
+			for update in _updateManager.updates.values {
+				_quickInstall.installUpdate(update)
+			}
+		} label: {
+			HStack {
+				Spacer()
+				if _updateManager.isChecking {
+					ProgressView().tint(.white)
+				}
+				Text(count == 0 ? "لا توجد تحديثات" : "\(count.formatted()) \(count == 1 ? "تحديث متوفر" : "تحديثات متوفرة") · تحديث الكل")
+					.font(.headline)
+					.foregroundStyle(count == 0 ? Color.secondary : Color.white)
+				Spacer()
+			}
+			.padding(.vertical, 14)
+			.background(
+				Capsule().fill(count == 0 ? Color(.secondarySystemFill) : Color.accentColor)
+			)
+		}
+		.buttonStyle(.plain)
+		.disabled(count == 0)
+		.padding(.top, 4)
+	}
+	
+	private func _header(_ title: String) -> some View {
+		Text(title)
+			.font(.title3.bold())
+			.padding(.top, 8)
+	}
+	
+	// MARK: Card
+	
+	@ViewBuilder
+	private func _card(_ app: Signed) -> some View {
+		HStack(spacing: 14) {
+			StoreIconOverride(bundleID: app.identifier) {
+				FRAppIconView(app: app, size: 57)
+			}
+			VStack(alignment: .leading, spacing: 3) {
+				Text(app.name ?? .localized("Unknown"))
+					.font(.headline)
+					.lineLimit(1)
+				Text(_subtitle(app))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.lineLimit(1)
+			}
+			Spacer(minLength: 8)
+			_pill(app)
+		}
+		.padding(14)
+		.background(
+			RoundedRectangle(cornerRadius: 22, style: .continuous)
+				.fill(Color(.secondarySystemBackground))
+		)
+		.contextMenu {
+			if let id = app.identifier {
+				Button("فتح", systemImage: "arrow.up.forward.app") {
+					UIApplication.openApp(with: id)
+				}
+			}
+			Button("حذف", systemImage: "trash", role: .destructive) {
+				LibraryDeleteHelper.confirmDelete([app])
+			}
+		}
+	}
+	
+	private func _subtitle(_ app: Signed) -> String {
+		if let update = _updateManager.update(for: app) {
+			// Isolated LTR run so "old → new" reads correctly inside RTL text.
+			return "\u{2066}\(update.localVersion ?? app.version ?? "—") → \(update.remoteVersion)\u{2069}"
+		}
+		return app.version ?? (app.identifier ?? "")
+	}
+	
+	@ViewBuilder
+	private func _pill(_ app: Signed) -> some View {
+		let key = _key(app)
+		if _quickInstall.justFinished.contains(key) {
+			ProgressPill(title: "مثبّت", color: .green, progress: 1, filled: true)
+		} else if let state = _quickInstall.state(for: key), !state.isFailed {
+			TimelineView(.periodic(from: .now, by: 0.3)) { _ in
+				ProgressPill(
+					title: _stateTitle(state),
+					color: .yellow,
+					progress: _progress(for: key, state: state),
+					filled: false
+				)
+			}
+			.onTapGesture { _quickInstall.cancel(key) }
+		} else if let update = _updateManager.update(for: app) {
+			Button {
+				_quickInstall.installUpdate(update)
+			} label: {
+				ProgressPill(title: "تحديث", color: .yellow, progress: 1, filled: true)
+			}
+			.buttonStyle(.plain)
+		} else {
+			Button {
+				if let id = app.identifier { UIApplication.openApp(with: id) }
+			} label: {
+				ProgressPill(title: "فتح", color: .accentColor, progress: 0, filled: false)
+			}
+			.buttonStyle(.plain)
+		}
+	}
+	
+	private func _stateTitle(_ state: QuickInstallState) -> String {
+		switch state {
+		case .downloading: return "تنزيل"
+		case .signing: return "توقيع"
+		case .installing: return "تثبيت"
+		case .failed: return "خطأ"
+		}
+	}
+	
+	private func _progress(for key: String, state: QuickInstallState) -> Double {
+		switch state {
+		case .downloading:
+			if let id = _quickInstall.downloadIDs[key], let dl = DownloadManager.shared.getDownload(by: id) {
+				return 0.6 * dl.overallProgress
+			}
+			return 0.05
+		case .signing: return 0.75
+		case .installing: return 0.9
+		case .failed: return 0
+		}
+	}
+}
+
+/// Capsule button whose background fills from the leading edge with progress.
+struct ProgressPill: View {
+	let title: String
+	let color: Color
+	let progress: Double
+	let filled: Bool
+	
+	var body: some View {
+		Text(title)
+			.font(.subheadline.bold())
+			.foregroundStyle(filled ? (color == .yellow ? Color.black : Color.white) : (progress > 0 ? Color.primary : color))
+			.frame(minWidth: 78)
+			.padding(.vertical, 7)
+			.padding(.horizontal, 12)
+			.background(
+				GeometryReader { geo in
+					ZStack(alignment: .leading) {
+						Capsule().fill(color.opacity(0.2))
+						Capsule()
+							.fill(color)
+							.frame(width: geo.size.width * (filled ? 1 : max(0, min(1, progress))))
+							.opacity(filled || progress > 0 ? 1 : 0)
 					}
 				}
-			}
-			.onChange(of: _editMode) { mode in
-				if mode == .inactive {
-					_selectedAppUUIDs.removeAll()
-				}
-			}
-			.onChange(of: updateManager.isChecking) { isChecking in
-				_handleUpdateCheckStateChange(isChecking)
-			}
-			.task {
-				await AutoUpdateChecker.checkNow()
-			}
-		}
-	}
-}
-
-// MARK: - Extension: View
-extension LibraryView {
-	@ViewBuilder
-	private func _importActions() -> some View {
-		Button(.localized("Import from Files"), systemImage: "folder") {
-			_isImportingPresenting = true
-		}
-		Button(.localized("Import from URL"), systemImage: "globe") {
-			_isDownloadingPresenting = true
-		}
-	}
-}
-
-// MARK: - Extension: Bulk Delete
-extension LibraryView {
-	private func _bulkDeleteSelectedApps() {
-		let selectedApps = _getAllApps().filter { app in
-			guard let uuid = app.uuid else { return false }
-			return _selectedAppUUIDs.contains(uuid)
-		}
-		
-		LibraryDeleteHelper.confirmDelete(selectedApps) {
-			_selectedAppUUIDs.removeAll()
-		}
-		
-		// _editMode = .inactive
-	}
-	
-	private func _getAllApps() -> [AppInfoPresentable] {
-		var allApps: [AppInfoPresentable] = []
-		
-		if _selectedScope == .all || _selectedScope == .signed {
-			allApps.append(contentsOf: _filteredSignedApps)
-		}
-		
-		if _selectedScope == .all || _selectedScope == .imported {
-			allApps.append(contentsOf: _filteredImportedApps)
-		}
-		
-		return allApps
-	}
-	
-	private func _checkForUpdates() async {
-		let localApps = _signedApps.map { $0 as AppInfoPresentable } + _importedApps.map { $0 as AppInfoPresentable }
-		await updateManager.checkForUpdates(
-			sources: Array(_sources),
-			localApps: localApps
-		)
-		// Manual check from the toolbar: always runs.
-	}
-	
-	private func _handleUpdateCheckStateChange(_ isChecking: Bool) {
-		if isChecking {
-			_isUpdateCheckCompleteVisible = false
-			_updateCheckRotation = 0
-			withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: false)) {
-				_updateCheckRotation = 360
-			}
-		} else {
-			withAnimation(.none) {
-				_updateCheckRotation = 0
-			}
-			
-			_isUpdateCheckCompleteVisible = true
-			Task { @MainActor in
-				try? await Task.sleep(nanoseconds: 900_000_000)
-				if !updateManager.isChecking {
-					_isUpdateCheckCompleteVisible = false
-				}
-			}
-		}
-	}
-}
-
-// MARK: - Extension: View (Sort)
-extension LibraryView {
-	enum Scope: CaseIterable {
-		case all
-		case signed
-		case imported
-		
-		var displayName: String {
-			switch self {
-			case .all: return .localized("All")
-			case .signed: return .localized("Signed")
-			case .imported: return .localized("Imported")
-			}
-		}
+			)
+			.clipShape(Capsule())
+			.animation(.smooth, value: progress)
+			.animation(.snappy, value: filled)
 	}
 }

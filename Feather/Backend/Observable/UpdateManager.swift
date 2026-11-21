@@ -36,6 +36,11 @@ final class UpdateManager: ObservableObject {
 	
 	private init() {}
 	
+	/// Drops a finished update right away (the next check confirms it).
+	func clearUpdate(bundleID: String) {
+		updates = updates.filter { $0.value.bundleIdentifier != bundleID }
+	}
+	
 	func update(for app: AppInfoPresentable) -> AppUpdate? {
 		guard let uuid = app.uuid else { return nil }
 		return updates[uuid]

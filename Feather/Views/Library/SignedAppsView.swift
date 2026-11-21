@@ -1,0 +1,95 @@
+//
+//  SignedAppsView.swift
+//  Muthabbit
+//
+//  «الموقّعة»: signed copies that are not (yet) installed. Install, share IPA, delete.
+//
+
+import SwiftUI
+import CoreData
+import NimbleViews
+
+struct SignedAppsView: View {
+	@ObservedObject private var _quickInstall = QuickInstallManager.shared
+	@State private var _sharing: AnyApp?
+	
+	@FetchRequest(
+		entity: Signed.entity(),
+		sortDescriptors: [NSSortDescriptor(keyPath: \Signed.date, ascending: false)],
+		animation: .snappy
+	) private var _signed: FetchedResults<Signed>
+	
+	private var _items: [Signed] {
+		_signed.filter { app in
+			guard let id = app.identifier else { return true }
+			return !_quickInstall.installedIDs.contains(id)
+		}
+	}
+	
+	var body: some View {
+		List {
+			ForEach(_items, id: \.objectID) { app in
+				HStack(spacing: 14) {
+					FRAppIconView(app: app, size: 50)
+					VStack(alignment: .leading, spacing: 2) {
+						Text(app.name ?? .localized("Unknown"))
+							.font(.headline)
+						Text(app.version ?? "")
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+					}
+					Spacer()
+					if
+						let state = _quickInstall.state(for: app.identifier),
+						!state.isFailed
+					{
+						ProgressView()
+					} else {
+						Button {
+							_quickInstall.installExisting(app)
+						} label: {
+							Text("تثبيت")
+								.font(.subheadline.bold())
+								.padding(.horizontal, 16)
+								.padding(.vertical, 5)
+								.background(Color(uiColor: .quaternarySystemFill), in: Capsule())
+						}
+						.buttonStyle(.borderless)
+					}
+				}
+				.swipeActions {
+					Button("حذف", systemImage: "trash", role: .destructive) {
+						Storage.shared.deleteApp(for: app)
+					}
+					Button("مشاركة", systemImage: "square.and.arrow.up") {
+						_sharing = AnyApp(base: app, archive: true)
+					}
+					.tint(.blue)
+				}
+				.contextMenu {
+					Button("مشاركة ملف IPA", systemImage: "square.and.arrow.up") {
+						_sharing = AnyApp(base: app, archive: true)
+					}
+					Button("حذف", systemImage: "trash", role: .destructive) {
+						Storage.shared.deleteApp(for: app)
+					}
+				}
+			}
+		}
+		.overlay {
+			if _items.isEmpty, #available(iOS 17, *) {
+				ContentUnavailableView(
+					"لا توجد تطبيقات موقّعة",
+					systemImage: "signature",
+					description: Text("تظهر هنا التطبيقات التي وُقّعت ولم يكتمل تثبيتها.")
+				)
+			}
+		}
+		.navigationTitle("الموقّعة")
+		.sheet(item: $_sharing) { item in
+			InstallPreviewView(app: item.base, isSharing: true)
+				.presentationDetents([.height(200)])
+				.presentationDragIndicator(.visible)
+		}
+	}
+}

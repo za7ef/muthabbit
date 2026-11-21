@@ -38,6 +38,21 @@ final class QuickInstallManager: ObservableObject {
 	@Published private(set) var installedIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
 	/// Signed copy produced by the current attempt, deleted if the install fails or is canceled.
 	private var _attemptSigned: [String: String] = [:]
+	/// key → download id (for the inline progress ring and cancel).
+	@Published private(set) var downloadIDs: [String: String] = [:]
+	/// Keys that just finished, shown briefly as «مُحدَّث» before moving down.
+	@Published private(set) var justFinished: Set<String> = []
+	
+	/// Tap on the progress ring: cancels a running download (later steps cannot be interrupted safely).
+	func cancel(_ key: String) {
+		guard case .downloading = states[key] else { return }
+		if let id = downloadIDs[key], let dl = DownloadManager.shared.getDownload(by: id) {
+			DownloadManager.shared.cancelDownload(dl)
+			_pending[id] = nil
+		}
+		downloadIDs[key] = nil
+		states[key] = nil
+	}
 	
 	func markInstalled(_ bundleID: String) {
 		installedIDs.insert(bundleID)
@@ -118,6 +133,7 @@ final class QuickInstallManager: ObservableObject {
 	) {
 		if let current = states[key], !current.isFailed { return }
 		_pending[downloadID] = (key, isUpdate)
+		downloadIDs[key] = downloadID
 		states[key] = .downloading
 		_ = DownloadManager.shared.startDownload(
 			from: url,
@@ -130,7 +146,7 @@ final class QuickInstallManager: ObservableObject {
 	func installUpdate(_ update: AppUpdate) {
 		installFromSource(
 			url: update.downloadURL,
-			downloadID: "FeatherManualDownload_Update_\(update.localUUID)",
+			downloadID: "Muthabbit_Update_\(update.localUUID)",
 			key: update.bundleIdentifier,
 			provenance: update.sourceProvenance,
 			isUpdate: true
@@ -162,6 +178,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _importFinished(downloadID: String, error: String?) {
 		guard let pending = _pending.removeValue(forKey: downloadID) else { return }
+		downloadIDs[pending.key] = nil
 		
 		if let error {
 			_fail(pending.key, error)
@@ -218,6 +235,12 @@ final class QuickInstallManager: ObservableObject {
 				return
 			}
 			self._attemptSigned[key] = signed.uuid
+			// One record per bundle id: replace older signed copies with the new one.
+			if let id = signed.identifier {
+				let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+				req.predicate = NSPredicate(format: "identifier == %@ AND uuid != %@", id, signed.uuid ?? "")
+				((try? Storage.shared.context.fetch(req)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
+			}
 			self._install(signed, key: key)
 		}
 	}
@@ -349,6 +372,15 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _finish(_ key: String) {
 		states[key] = nil
+		justFinished.insert(key)
+		Task { @MainActor [weak self] in
+			try? await Task.sleep(nanoseconds: 1_600_000_000)
+			withAnimation(.snappy) {
+				_ = self?.justFinished.remove(key)
+				UpdateManager.shared.clearUpdate(bundleID: key)
+				if let id = self?._bundleIDs[key] { UpdateManager.shared.clearUpdate(bundleID: id) }
+			}
+		}
 		_fallbackTried.remove(key)
 		_attemptSigned[key] = nil
 		if let id = _bundleIDs[key] { markInstalled(id) }
@@ -371,12 +403,8 @@ final class QuickInstallManager: ObservableObject {
 	private func _fail(_ key: String, _ message: String) {
 		states[key] = .failed(message)
 		_fallbackTried.remove(key)
-		// No record for a failed/canceled install: drop the signed copy made for this attempt.
-		if let uuid = _attemptSigned.removeValue(forKey: key) {
-			let req: NSFetchRequest<Signed> = Signed.fetchRequest()
-			req.predicate = NSPredicate(format: "uuid == %@", uuid)
-			((try? Storage.shared.context.fetch(req)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
-		}
+		// No install record for a failed/canceled install; the signed copy stays in «الموقّعة».
+		_attemptSigned[key] = nil
 		Task.detached(priority: .background) { StorageCleaner.cleanTemporaryFiles() }
 		if _installingKey == key {
 			_teardownInstall()
