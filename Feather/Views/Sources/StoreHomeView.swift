@@ -39,6 +39,9 @@ struct StoreHomeView: View {
 	@State private var _filtered: [StoreAppEntry] = []
 	/// Infinite scroll: how many rows are rendered so far (pages of 30).
 	@State private var _limit = 30
+	/// Category chips: built from the sources' `category` field; nil = all apps.
+	@State private var _categories: [StoreCategory] = []
+	@State private var _selectedCategory: String? = nil
 	
 	private func _buildEntries() -> [StoreAppEntry] {
 		// One entry per bundle id across all sources; the newest version is the main entry.
@@ -64,13 +67,21 @@ struct StoreHomeView: View {
 	}
 	
 	private func _refilter() {
+		_categories = StoreCategory.build(from: _entries)
+		if let selected = _selectedCategory, !_categories.contains(where: { $0.key == selected }) {
+			_selectedCategory = nil
+		}
 		_filtered = _computeFiltered()
 		_limit = 30
 	}
 	
 	private func _computeFiltered() -> [StoreAppEntry] {
-		guard !_searchText.isEmpty else { return _entries }
-		return _entries.filter {
+		var list = _entries
+		if let selected = _selectedCategory {
+			list = list.filter { StoreCategory.key(for: $0.app.category) == selected }
+		}
+		guard !_searchText.isEmpty else { return list }
+		return list.filter {
 			$0.app.currentName.localizedCaseInsensitiveContains(_searchText)
 			|| ($0.app.subtitle?.localizedCaseInsensitiveContains(_searchText) ?? false)
 			|| ($0.app.id?.localizedCaseInsensitiveContains(_searchText) ?? false)
@@ -83,7 +94,12 @@ struct StoreHomeView: View {
 				// No spacing between list rows (and no negative paddings that overlap during lazy layout);
 				// the cards get their own spacing.
 				LazyVStack(alignment: .leading, spacing: 0) {
-					if _searchText.isEmpty {
+					if !_categories.isEmpty {
+						_categoryChips()
+							.padding(.bottom, 14)
+					}
+					
+					if _searchText.isEmpty, _selectedCategory == nil {
 						if let hero = _entries.first {
 							_heroCard(hero).padding(.bottom, 22)
 						}
@@ -94,7 +110,7 @@ struct StoreHomeView: View {
 						}
 					}
 					
-					if _searchText.isEmpty, _github.isSignedIn {
+					if _searchText.isEmpty, _selectedCategory == nil, _github.isSignedIn {
 						NavigationLink {
 							MyProjectsView()
 						} label: {
@@ -117,7 +133,7 @@ struct StoreHomeView: View {
 					
 					if !_filtered.isEmpty {
 						HStack(alignment: .firstTextBaseline) {
-							Text(_searchText.isEmpty ? L("كل التطبيقات") : L("نتائج البحث"))
+							Text(_searchText.isEmpty ? (_selectedCategoryTitle ?? L("كل التطبيقات")) : L("نتائج البحث"))
 								.font(.title2.bold())
 							Spacer()
 							Text(L("%@ تطبيق من %@ مصدر", _filtered.count.formatted(), _sources.count.formatted()))
@@ -159,6 +175,7 @@ struct StoreHomeView: View {
 			.onChange(of: viewModel.isFinished) { _ in _entries = _buildEntries(); _refilter() }
 			.onChange(of: _sources.count) { _ in _entries = _buildEntries(); _refilter() }
 			.onChange(of: _searchText) { _ in _refilter() }
+			.onChange(of: _selectedCategory) { _ in _refilter() }
 			.navigationTitle(L("المتجر"))
 			.navigationBarTitleDisplayMode(.large)
 			.searchable(text: $_searchText, prompt: L("ابحث في التطبيقات"))
@@ -195,6 +212,49 @@ struct StoreHomeView: View {
 		.task(id: Array(_sources)) {
 			await viewModel.fetchSources(_sources)
 		}
+	}
+	
+	// MARK: Category chips
+	
+	private var _selectedCategoryTitle: String? {
+		guard let selected = _selectedCategory else { return nil }
+		return _categories.first { $0.key == selected }?.title
+	}
+	
+	@ViewBuilder
+	private func _categoryChips() -> some View {
+		ScrollView(.horizontal, showsIndicators: false) {
+			HStack(spacing: 8) {
+				_chip(title: L("كل التطبيقات"), isSelected: _selectedCategory == nil) {
+					_selectedCategory = nil
+				}
+				ForEach(_categories) { category in
+					_chip(title: category.title, isSelected: _selectedCategory == category.key) {
+						_selectedCategory = category.key
+					}
+				}
+			}
+			.padding(.horizontal, 20)
+		}
+	}
+	
+	private func _chip(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+		Button(action: action) {
+			Text(title)
+				.font(.subheadline.weight(.semibold))
+				.lineLimit(1)
+				.foregroundStyle(isSelected ? Color.white : Color.primary)
+				.padding(.horizontal, 16)
+				.padding(.vertical, 9)
+				.background(
+					Capsule().fill(isSelected ? Color.accentColor : Color(.secondarySystemBackground))
+				)
+				.overlay(
+					Capsule().stroke(Color.primary.opacity(isSelected ? 0 : 0.08), lineWidth: 0.5)
+				)
+		}
+		.buttonStyle(.plain)
+		.accessibilityAddTraits(isSelected ? .isSelected : [])
 	}
 	
 	// MARK: Cards
@@ -411,5 +471,53 @@ struct HeroDriftBackground: View {
 		.allowsHitTesting(false)
 		.onAppear { _isVisible = true }
 		.onDisappear { _isVisible = false }
+	}
+}
+
+
+/// One category chip. Categories come from each app's `category` field in its source
+/// (AltStore format). Spellings that differ only in case/spaces are merged; the standard
+/// AltStore categories get translated names, any other value is shown as written by the source.
+struct StoreCategory: Identifiable, Equatable {
+	let key: String
+	let title: String
+	let count: Int
+	var id: String { key }
+	
+	private static let _known: [String: String] = [
+		"games": "ألعاب",
+		"entertainment": "ترفيه",
+		"utilities": "أدوات مساعدة",
+		"social": "تواصل اجتماعي",
+		"developer": "أدوات المطورين",
+		"photo-video": "صور وفيديو",
+		"lifestyle": "نمط الحياة",
+		"other": "أخرى"
+	]
+	
+	static func key(for raw: String?) -> String? {
+		guard let raw else { return nil }
+		let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty else { return nil }
+		return trimmed.lowercased()
+	}
+	
+	static func build(from entries: [StoreAppEntry]) -> [StoreCategory] {
+		var counts: [String: Int] = [:]
+		var titles: [String: String] = [:]
+		for entry in entries {
+			guard let raw = entry.app.category, let key = key(for: raw) else { continue }
+			counts[key, default: 0] += 1
+			if titles[key] == nil {
+				titles[key] = _known[key].map { L($0) } ?? raw.trimmingCharacters(in: .whitespacesAndNewlines)
+			}
+		}
+		return counts.map { StoreCategory(key: $0.key, title: titles[$0.key] ?? $0.key, count: $0.value) }
+			.sorted {
+				// "Other" always last; the rest by number of apps, then by name.
+				if ($0.key == "other") != ($1.key == "other") { return $1.key == "other" }
+				if $0.count != $1.count { return $0.count > $1.count }
+				return $0.title.localizedCompare($1.title) == .orderedAscending
+			}
 	}
 }

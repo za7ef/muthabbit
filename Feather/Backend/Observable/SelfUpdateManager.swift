@@ -9,7 +9,7 @@ import Foundation
 import UIKit
 
 enum AppInfo {
-	static let displayName = "مُثبِّت"
+	static let displayName = "وسم"
 	static let repository = "za7ef/muthabbit"
 	static let repositoryURL = URL(string: "https://github.com/za7ef/muthabbit")!
 	static let developerURL = URL(string: "https://github.com/za7ef")!

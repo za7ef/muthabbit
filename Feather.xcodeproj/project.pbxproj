@@ -368,7 +368,7 @@
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Feather/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "مُثبِّت";
+				INFOPLIST_KEY_CFBundleDisplayName = Wasm;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Based on Feather (c) Samara M, GPL-3.0";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -432,7 +432,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Feather/Resources/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "مُثبِّت";
+				INFOPLIST_KEY_CFBundleDisplayName = Wasm;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Based on Feather (c) Samara M, GPL-3.0";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;

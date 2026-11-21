@@ -19058,55 +19058,55 @@
         }
       }
     },
-    "«مُثبِّت» أداة مجانية مفتوحة المصدر لتصفّح مصادر التطبيقات المتوافقة مع صيغة AltStore، وتنزيل ملفات IPA منها، وتوقيعها بشهادة يملكها المستخدم، ثم تثبيتها على جهازه، مع التنبيه عند توفر إصدار أحدث في المصدر.": {
+    "«وسم» أداة مجانية مفتوحة المصدر لتصفّح مصادر التطبيقات المتوافقة مع صيغة AltStore، وتنزيل ملفات IPA منها، وتوقيعها بشهادة يملكها المستخدم، ثم تثبيتها على جهازه، مع التنبيه عند توفر إصدار أحدث في المصدر.": {
       "extractionState": "manual",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "«مُثبِّت» أداة مجانية مفتوحة المصدر لتصفّح مصادر التطبيقات المتوافقة مع صيغة AltStore، وتنزيل ملفات IPA منها، وتوقيعها بشهادة يملكها المستخدم، ثم تثبيتها على جهازه، مع التنبيه عند توفر إصدار أحدث في المصدر."
+            "value": "«وسم» أداة مجانية مفتوحة المصدر لتصفّح مصادر التطبيقات المتوافقة مع صيغة AltStore، وتنزيل ملفات IPA منها، وتوقيعها بشهادة يملكها المستخدم، ثم تثبيتها على جهازه، مع التنبيه عند توفر إصدار أحدث في المصدر."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit is a free, open-source tool for browsing AltStore-compatible app sources, downloading IPA files from them, signing them with a certificate owned by the user, and installing them on the user’s device, with a notice when a newer version is available in the source."
+            "value": "Wasm is a free, open-source tool for browsing AltStore-compatible app sources, downloading IPA files from them, signing them with a certificate owned by the user, and installing them on the user’s device, with a notice when a newer version is available in the source."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit es una herramienta gratuita y de código abierto para explorar fuentes de apps compatibles con AltStore, descargar archivos IPA, firmarlos con un certificado propiedad del usuario e instalarlos en su dispositivo, con aviso cuando hay una versión más reciente en la fuente."
+            "value": "Wasm es una herramienta gratuita y de código abierto para explorar fuentes de apps compatibles con AltStore, descargar archivos IPA, firmarlos con un certificado propiedad del usuario e instalarlos en su dispositivo, con aviso cuando hay una versión más reciente en la fuente."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit est un outil gratuit et open source permettant de parcourir des sources d’apps compatibles AltStore, d’y télécharger des fichiers IPA, de les signer avec un certificat appartenant à l’utilisateur et de les installer sur son appareil, avec une alerte lorsqu’une version plus récente est disponible."
+            "value": "Wasm est un outil gratuit et open source permettant de parcourir des sources d’apps compatibles AltStore, d’y télécharger des fichiers IPA, de les signer avec un certificat appartenant à l’utilisateur et de les installer sur son appareil, avec une alerte lorsqu’une version plus récente est disponible."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit — бесплатный инструмент с открытым исходным кодом для просмотра источников приложений в формате AltStore, загрузки из них IPA-файлов, их подписи сертификатом пользователя и установки на устройство, с уведомлением о выходе новой версии в источнике."
+            "value": "Wasm — бесплатный инструмент с открытым исходным кодом для просмотра источников приложений в формате AltStore, загрузки из них IPA-файлов, их подписи сертификатом пользователя и установки на устройство, с уведомлением о выходе новой версии в источнике."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit; AltStore uyumlu uygulama kaynaklarına göz atmak, bunlardan IPA dosyaları indirmek, kullanıcının kendi sertifikasıyla imzalamak ve cihaza yüklemek için ücretsiz ve açık kaynaklı bir araçtır; kaynakta daha yeni bir sürüm olduğunda bildirir."
+            "value": "Wasm; AltStore uyumlu uygulama kaynaklarına göz atmak, bunlardan IPA dosyaları indirmek, kullanıcının kendi sertifikasıyla imzalamak ve cihaza yüklemek için ücretsiz ve açık kaynaklı bir araçtır; kaynakta daha yeni bir sürüm olduğunda bildirir."
           }
         },
         "ur": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit ایک مفت اوپن سورس ٹول ہے جو AltStore کے مطابق ایپ سورسز براؤز کرنے، ان سے IPA فائلیں ڈاؤن لوڈ کرنے، صارف کے اپنے سرٹیفکیٹ سے سائن کرنے اور ڈیوائس پر انسٹال کرنے کے لیے ہے، اور سورس میں نیا ورژن آنے پر اطلاع دیتا ہے۔"
+            "value": "Wasm ایک مفت اوپن سورس ٹول ہے جو AltStore کے مطابق ایپ سورسز براؤز کرنے، ان سے IPA فائلیں ڈاؤن لوڈ کرنے، صارف کے اپنے سرٹیفکیٹ سے سائن کرنے اور ڈیوائس پر انسٹال کرنے کے لیے ہے، اور سورس میں نیا ورژن آنے پر اطلاع دیتا ہے۔"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muthabbit 是一款免费开源工具，用于浏览兼容 AltStore 格式的应用源，从中下载 IPA 文件，使用用户自己的证书签名并安装到设备上，并在源中有新版本时提醒。"
+            "value": "Wasm 是一款免费开源工具，用于浏览兼容 AltStore 格式的应用源，从中下载 IPA 文件，使用用户自己的证书签名并安装到设备上，并在源中有新版本时提醒。"
           }
         }
       }
@@ -27976,6 +27976,430 @@
           "stringUnit": {
             "state": "translated",
             "value": "💜感谢捐赠者们的贡献与一路以来的支持！"
+          }
+        }
+      }
+    },
+    "ألعاب": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ألعاب"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Games"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeux"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Juegos"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игры"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "游戏"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "گیمز"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oyunlar"
+          }
+        }
+      }
+    },
+    "ترفيه": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ترفيه"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entertainment"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Divertissement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entretenimiento"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Развлечения"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "娱乐"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تفریح"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eğlence"
+          }
+        }
+      }
+    },
+    "أدوات مساعدة": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أدوات مساعدة"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilities"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilitaires"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilidades"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Утилиты"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工具"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "یوٹیلیٹیز"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Araçlar"
+          }
+        }
+      }
+    },
+    "تواصل اجتماعي": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تواصل اجتماعي"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Social"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réseaux sociaux"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redes sociales"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Социальные сети"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "社交"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "سوشل"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sosyal"
+          }
+        }
+      }
+    },
+    "أدوات المطورين": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أدوات المطورين"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Developer Tools"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outils de développement"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Herramientas para desarrolladores"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Инструменты разработчика"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开发者工具"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ڈیولپر ٹولز"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geliştirici Araçları"
+          }
+        }
+      }
+    },
+    "صور وفيديو": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "صور وفيديو"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo & Video"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo et vidéo"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foto y vídeo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Фото и видео"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "照片与视频"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تصاویر اور ویڈیو"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fotoğraf ve Video"
+          }
+        }
+      }
+    },
+    "نمط الحياة": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نمط الحياة"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lifestyle"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Style de vie"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estilo de vida"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Образ жизни"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生活"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "طرز زندگی"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yaşam Tarzı"
+          }
+        }
+      }
+    },
+    "أخرى": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أخرى"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autres"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otros"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другое"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "دیگر"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diğer"
           }
         }
       }
