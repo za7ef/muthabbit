@@ -89,7 +89,7 @@ struct SourceAppsDetailView: View {
 						HStack(spacing: 8) {
 							DownloadButtonView(sourceURL: sourceURL, source: source, app: app)
 							if app.currentAppVersion?.isBeta == true {
-								Text("تجريبي")
+								Text(L("تجريبي"))
 									.font(.caption.bold())
 									.foregroundStyle(.orange)
 							}
@@ -109,7 +109,7 @@ struct SourceAppsDetailView: View {
 				Divider()
                 
 				if !others.isEmpty {
-					NBSection("متوفر في مصادر أخرى") {
+					NBSection(L("متوفر في مصادر أخرى")) {
 						VStack(spacing: 0) {
 							ForEach(others) { other in
 								NavigationLink {
@@ -137,7 +137,7 @@ struct SourceAppsDetailView: View {
 				}
 				
 				if let screenshotURLs = _previewURLs, !screenshotURLs.isEmpty {
-					NBSection("معاينة") {
+					NBSection(L("معاينة")) {
 						_screenshots(screenshotURLs: screenshotURLs)
 					}
                     
@@ -163,11 +163,11 @@ struct SourceAppsDetailView: View {
 							app: app,
 							versions: _allVersions
 						)
-							.navigationTitle("جميع الإصدارات")
+							.navigationTitle(L("جميع الإصدارات"))
 							.navigationBarTitleDisplayMode(.large)
 					) {
 						HStack {
-							Text("جميع الإصدارات")
+							Text(L("جميع الإصدارات"))
 							Spacer()
 							Text(_allVersions.count.formatted())
 								.foregroundStyle(.secondary)
@@ -221,7 +221,7 @@ struct SourceAppsDetailView: View {
 				}
 				
 				if let minOS = app.currentAppVersion?.minOSVersion {
-					Text("يتطلب iOS \(minOS.description) أو أحدث.")
+					Text(L("يتطلب iOS %@ أو أحدث.", minOS.description))
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 				}
@@ -385,12 +385,12 @@ extension SourceAppsDetailView {
 	
 	private func _infoStrip(app: ASRepository.App) -> some View {
 		var items: [(String, String, String)] = []
-		if let v = app.currentVersion { items.append(("الإصدار", v, "tag")) }
-		if let size = app.size { items.append(("الحجم", size.formattedByteCount, "archivebox")) }
-		if let c = app.category { items.append(("الفئة", c.capitalized, "square.grid.2x2")) }
-		if let n = source.name { items.append(("المصدر", n, "bag")) }
-		if let d = app.developer { items.append(("المطوّر", d, "person.crop.square")) }
-		if let m = app.currentAppVersion?.minOSVersion { items.append(("الحد الأدنى", "iOS \(m.description)", "iphone")) }
+		if let v = app.currentVersion { items.append((L("الإصدار"), v, "tag")) }
+		if let size = app.size { items.append((L("الحجم"), size.formattedByteCount, "archivebox")) }
+		if let c = app.category { items.append((L("الفئة"), c.capitalized, "square.grid.2x2")) }
+		if let n = source.name { items.append((L("المصدر"), n, "bag")) }
+		if let d = app.developer { items.append((L("المطوّر"), d, "person.crop.square")) }
+		if let m = app.currentAppVersion?.minOSVersion { items.append((L("الحد الأدنى"), "iOS \(m.description)", "iphone")) }
 		return ScrollView(.horizontal, showsIndicators: false) {
 			HStack(spacing: 0) {
 				ForEach(items.indices, id: \.self) { i in

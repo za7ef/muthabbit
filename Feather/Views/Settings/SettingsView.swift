@@ -8,6 +8,7 @@
 
 import SwiftUI
 import NimbleViews
+import NimbleExtensions
 import UIKit
 
 // MARK: - Icon helper
@@ -78,19 +79,19 @@ struct SettingsView: View {
 							.foregroundColor(.disabled())
 					}
 					NavigationLink(destination: CertificatesView()) {
-						SettingsRow(title: "إدارة الشهادات", systemName: "checkmark.seal.fill", color: .green)
+						SettingsRow(title: L("إدارة الشهادات"), systemName: "checkmark.seal.fill", color: .green)
 					}
 				} header: {
-					Text("الشهادة")
+					Text(L("الشهادة"))
 				} footer: {
-					Text("تُستخدم الشهادة المحددة تلقائيًا لتوقيع كل تطبيق عند التثبيت أو التحديث. يلزم ملف p12 وملف mobileprovision.")
+					Text(L("تُستخدم الشهادة المحددة تلقائيًا لتوقيع كل تطبيق عند التثبيت أو التحديث. يلزم ملف p12 وملف mobileprovision."))
 				}
 				
 				// GitHub
 				Section {
 					NavigationLink(destination: GitHubAccountView()) {
 						HStack {
-							SettingsRow(title: "تسجيل الدخول عبر GitHub", systemName: "person.crop.circle.fill", color: .black)
+							SettingsRow(title: L("تسجيل الدخول عبر GitHub"), systemName: "person.crop.circle.fill", color: .black)
 							Spacer()
 							if let login = GitHubAccount.shared.login {
 								Text("@\(login)").foregroundStyle(.secondary)
@@ -100,35 +101,35 @@ struct SettingsView: View {
 				} header: {
 					Text("GitHub")
 				} footer: {
-					Text("لعرض مستودعاتك وتثبيت تطبيقاتها من «مشاريعي».")
+					Text(L("لعرض مستودعاتك وتثبيت تطبيقاتها من «مشاريعي»."))
 				}
 				
 				// Install & signing defaults
 				Section {
 					NavigationLink(destination: ConfigurationView()) {
-						SettingsRow(title: "خيارات التثبيت الافتراضية", systemName: "slider.horizontal.3", color: .blue)
+						SettingsRow(title: L("خيارات التثبيت الافتراضية"), systemName: "slider.horizontal.3", color: .blue)
 					}
 					NavigationLink(destination: InstallationView()) {
-						SettingsRow(title: "طريقة التثبيت", systemName: "arrow.down.app.fill", color: .indigo)
+						SettingsRow(title: L("طريقة التثبيت"), systemName: "arrow.down.app.fill", color: .indigo)
 					}
 				} header: {
-					Text("التثبيت")
+					Text(L("التثبيت"))
 				} footer: {
-					Text("تُطبَّق الخيارات الافتراضية (الاسم، معرّف الحزمة، الإصدار، الأدوات المحقونة، مشاركة الملفات، إزالة URL Schemes، إزالة تطبيق الساعة، الحد الأدنى لإصدار iOS، الصلاحيات المخصصة، وغيرها) تلقائيًا على كل تثبيت وتحديث. طريقة التثبيت الافتراضية «Semi Local» مناسبة لإصدارات iOS الحديثة.")
+					Text(L("تُطبَّق الخيارات الافتراضية (الاسم، معرّف الحزمة، الإصدار، الأدوات المحقونة، مشاركة الملفات، إزالة URL Schemes، إزالة تطبيق الساعة، الحد الأدنى لإصدار iOS، الصلاحيات المخصصة، وغيرها) تلقائيًا على كل تثبيت وتحديث. طريقة التثبيت الافتراضية «Semi Local» مناسبة لإصدارات iOS الحديثة."))
 				}
 				
 				// Optional screens
 				Section {
 					Toggle(isOn: $_showInstallOptions) {
-						SettingsRow(title: "إظهار خيارات التثبيت عند تثبيت تطبيق جديد", systemName: "list.bullet.rectangle.fill", color: .orange)
+						SettingsRow(title: L("إظهار خيارات التثبيت عند تثبيت تطبيق جديد"), systemName: "list.bullet.rectangle.fill", color: .orange)
 					}
 					Toggle(isOn: $_showProcessLog) {
-						SettingsRow(title: "إظهار سجل العمليات", systemName: "text.alignright", color: .gray)
+						SettingsRow(title: L("إظهار سجل العمليات"), systemName: "text.alignright", color: .gray)
 					}
 				} header: {
-					Text("الشاشات الإضافية")
+					Text(L("الشاشات الإضافية"))
 				} footer: {
-					Text("عند إيقاف الخيارين، يتم التنزيل والتوقيع والتثبيت بضغطة واحدة في الخلفية دون أي شاشات إضافية. ولا تظهر خيارات التثبيت عند التحديث.")
+					Text(L("عند إيقاف الخيارين، يتم التنزيل والتوقيع والتثبيت بضغطة واحدة في الخلفية دون أي شاشات إضافية. ولا تظهر خيارات التثبيت عند التحديث."))
 				}
 				
 				// Storage
@@ -136,13 +137,13 @@ struct SettingsView: View {
 					LabeledContent {
 						Text(ByteCountFormatter.string(fromByteCount: _usedBytes, countStyle: .file))
 					} label: {
-						SettingsRow(title: "المساحة المستخدمة", systemName: "internaldrive.fill", color: .gray)
+						SettingsRow(title: L("المساحة المستخدمة"), systemName: "internaldrive.fill", color: .gray)
 					}
 					Toggle(isOn: $_deleteOld) {
-						SettingsRow(title: "حذف النسخة السابقة بعد التحديث", systemName: "arrow.triangle.2.circlepath", color: .orange)
+						SettingsRow(title: L("حذف النسخة السابقة بعد التحديث"), systemName: "arrow.triangle.2.circlepath", color: .orange)
 					}
 					Toggle(isOn: $_deleteFiles) {
-						SettingsRow(title: "حذف الملف بعد التثبيت أو التحديث", systemName: "xmark.bin.fill", color: .pink)
+						SettingsRow(title: L("حذف الملف بعد التثبيت أو التحديث"), systemName: "xmark.bin.fill", color: .pink)
 					}
 					Button(role: .destructive) {
 						Task.detached(priority: .userInitiated) {
@@ -151,16 +152,27 @@ struct SettingsView: View {
 						}
 					} label: {
 						HStack {
-							SettingsRow(title: "مسح الكاش", systemName: "trash.circle.fill", color: .red)
+							SettingsRow(title: L("مسح الكاش"), systemName: "trash.circle.fill", color: .red)
 							Spacer()
 							Text(ByteCountFormatter.string(fromByteCount: _cacheBytes, countStyle: .file))
 								.foregroundStyle(.secondary)
 						}
 					}
 				} header: {
-					Text("التخزين")
+					Text(L("التخزين"))
 				} footer: {
-					Text("يُحذف تلقائيًا بعد كل تثبيت أو تحديث ملف التنزيل والنسخ القديمة والملفات المؤقتة، وعند تفعيل «حذف النسخة السابقة بعد التحديث» يُحتفظ بآخر نسخة موقّعة فقط. وعند تفعيل «حذف الملف بعد التثبيت أو التحديث» تُحذف ملفات النسخة المثبّتة أيضًا، ويبقى التطبيق في «تطبيقاتي» لمتابعة تحديثاته. لا يحذف «مسح الكاش» التطبيقات ولا الشهادات.")
+					Text(L("يُحذف تلقائيًا بعد كل تثبيت أو تحديث ملف التنزيل والنسخ القديمة والملفات المؤقتة، وعند تفعيل «حذف النسخة السابقة بعد التحديث» يُحتفظ بآخر نسخة موقّعة فقط. وعند تفعيل «حذف الملف بعد التثبيت أو التحديث» تُحذف ملفات النسخة المثبّتة أيضًا، ويبقى التطبيق في «تطبيقاتي» لمتابعة تحديثاته. لا يحذف «مسح الكاش» التطبيقات ولا الشهادات."))
+				}
+				
+				// Language
+				Section {
+					NavigationLink(destination: LanguageSettingsView()) {
+						HStack {
+							SettingsRow(title: L("اللغة"), systemName: "globe", color: .cyan)
+							Spacer()
+							Text(AppLanguage.selected.nativeName).foregroundStyle(.secondary)
+						}
+					}
 				}
 				
 				// About
@@ -168,19 +180,19 @@ struct SettingsView: View {
 					NavigationLink(destination: AboutView()) {
 						HStack(spacing: 12) {
 							FRAppIconView(size: 29)
-							Text("حول التطبيق")
+							Text(L("حول التطبيق"))
 						}
 					}
 					NavigationLink(destination: TermsOfUseView()) {
-						SettingsRow(title: "سياسة الاستخدام", systemName: "doc.plaintext.fill", color: .teal)
+						SettingsRow(title: L("سياسة الاستخدام"), systemName: "doc.plaintext.fill", color: .teal)
 					}
 					NavigationLink(destination: PrivacyPolicyView()) {
-						SettingsRow(title: "سياسة الخصوصية", systemName: "hand.raised.fill", color: .blue)
+						SettingsRow(title: L("سياسة الخصوصية"), systemName: "hand.raised.fill", color: .blue)
 					}
 				} header: {
-					Text("حول")
+					Text(L("حول"))
 				} footer: {
-					Text("الإصدار \(AppInfo.fullVersion)")
+					Text(L("الإصدار %@", AppInfo.fullVersion))
 				}
 				
 				// Reset
@@ -202,6 +214,44 @@ struct SettingsView: View {
 		await MainActor.run {
 			_usedBytes = used
 			_cacheBytes = cache
+		}
+	}
+}
+
+
+// MARK: - Language
+struct LanguageSettingsView: View {
+	@State private var _selected = AppLanguage.selected
+	@State private var _showRestart = false
+	
+	var body: some View {
+		List {
+			ForEach(AppLanguage.allCases) { lang in
+				Button {
+					guard lang != _selected else { return }
+					_selected = lang
+					AppLanguage.select(lang)
+					_showRestart = true
+				} label: {
+					HStack {
+						Text(lang.nativeName).foregroundStyle(.primary)
+						Spacer()
+						if lang == _selected {
+							Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+						}
+					}
+				}
+			}
+		}
+		.navigationTitle(L("اللغة"))
+		.alert(L("تغيير اللغة"), isPresented: $_showRestart) {
+			Button(L("إغلاق التطبيق")) {
+				UIApplication.shared.suspend()
+				DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
+			}
+			Button(L("لاحقًا"), role: .cancel) {}
+		} message: {
+			Text(L("تُطبَّق اللغة الجديدة بعد إعادة فتح التطبيق."))
 		}
 	}
 }

@@ -23,9 +23,9 @@ enum QuickInstallState: Equatable {
 	
 	var progressText: String {
 		switch self {
-		case .downloading: return "جارٍ التنزيل…"
-		case .signing: return "جارٍ التوقيع…"
-		case .installing: return "جارٍ التثبيت…"
+		case .downloading: return L("جارٍ التنزيل…")
+		case .signing: return L("جارٍ التوقيع…")
+		case .installing: return L("جارٍ التثبيت…")
 		case .failed: return ""
 		}
 	}
@@ -254,7 +254,7 @@ final class QuickInstallManager: ObservableObject {
 		if Storage.shared.getAppDirectory(for: app) == nil {
 			UIAlertController.showAlertWithOk(
 				title: .localized("Error"),
-				message: "حُذفت ملفات هذا التطبيق بعد تثبيته. يمكن تثبيته مجددًا من «المتجر»."
+				message: L("حُذفت ملفات هذا التطبيق بعد تثبيته. يمكن تثبيته مجددًا من «المتجر».")
 			)
 			return
 		}
@@ -296,11 +296,11 @@ final class QuickInstallManager: ObservableObject {
 		req.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
 		let fresh = ((try? Storage.shared.context.fetch(req)) ?? []).filter { !before.contains($0.uuid ?? "") }
 		guard let imported = fresh.first else {
-			_fail(pending.key, "تعذّر العثور على الملف بعد التنزيل.")
+			_fail(pending.key, L("تعذّر العثور على الملف بعد التنزيل."))
 			return
 		}
 		if let expected, let got = imported.version, got.compare(expected, options: .numeric) != .orderedSame {
-			_fail(pending.key, "الملف المنزّل بإصدار \(got) بدل \(expected).")
+			_fail(pending.key, L("الملف المنزّل بإصدار %@ بدل %@.", "\(got)", "\(expected)"))
 			return
 		}
 		// Purge older imported and signed copies of the same app before signing.
@@ -325,7 +325,7 @@ final class QuickInstallManager: ObservableObject {
 			states[key] = nil
 			UIAlertController.showAlertWithOk(
 				title: .localized("No Certificate"),
-				message: "يلزم استيراد شهادة من الإعدادات قبل التثبيت."
+				message: L("يلزم استيراد شهادة من الإعدادات قبل التثبيت.")
 			)
 			return
 		}
@@ -351,7 +351,7 @@ final class QuickInstallManager: ObservableObject {
 			}
 			
 			guard let signed = self._signedFrom(app) else {
-				self._fail(key, "تعذّر العثور على التطبيق بعد التوقيع.")
+				self._fail(key, L("تعذّر العثور على التطبيق بعد التوقيع."))
 				return
 			}
 			self._attemptSigned[key] = signed.uuid
@@ -429,7 +429,7 @@ final class QuickInstallManager: ObservableObject {
 							guard let self, !Task.isCancelled, self._installingKey == key else { return }
 							// iOS never fetched the app (usually «إلغاء» on the prompt): stop, no automatic retry.
 							if case .ready = viewModel.status {
-								self._fail(key, "لم يكتمل التثبيت. يمكن المحاولة مجددًا.")
+								self._fail(key, L("لم يكتمل التثبيت. يمكن المحاولة مجددًا."))
 							}
 						}
 					case .sendingPayload, .sendingManifest:
@@ -481,7 +481,7 @@ final class QuickInstallManager: ObservableObject {
 	/// Tries the other server method once (Semi Local ⇄ Local) before reporting failure.
 	private func _fallback(_ app: AppInfoPresentable, key: String, from method: Int) {
 		guard !_fallbackTried.contains(key) else {
-			_fail(key, "تعذّر بدء التثبيت بالطريقتين. يمكن تغيير طريقة التثبيت من الإعدادات.")
+			_fail(key, L("تعذّر بدء التثبيت بالطريقتين. يمكن تغيير طريقة التثبيت من الإعدادات."))
 			return
 		}
 		_fallbackTried.insert(key)
@@ -571,7 +571,7 @@ final class QuickInstallManager: ObservableObject {
 				let elapsed = Date().timeIntervalSince(begin)
 				if (!hasStarted && elapsed > 120) || elapsed > 600 {
 					await MainActor.run {
-						viewModel.status = .broken(NSError(domain: "Muthabbit", code: 1, userInfo: [NSLocalizedDescriptionKey: "لم يكتمل التثبيت. يمكن المحاولة مجددًا."]))
+						viewModel.status = .broken(NSError(domain: "Muthabbit", code: 1, userInfo: [NSLocalizedDescriptionKey: L("لم يكتمل التثبيت. يمكن المحاولة مجددًا.")]))
 					}
 					break
 				}
@@ -785,43 +785,43 @@ enum LibraryDeleteHelper {
 	/// Shows the delete options for one or more library entries.
 	static func confirmDelete(_ apps: [AppInfoPresentable], completion: (() -> Void)? = nil) {
 		guard !apps.isEmpty else { return }
-		let filesOnly = UIAlertAction(title: "حذف الملفات فقط", style: .default) { _ in
+		let filesOnly = UIAlertAction(title: L("حذف الملفات فقط"), style: .default) { _ in
 			apps.forEach { _deleteFiles(of: $0) }
 			completion?()
 		}
-		let all = UIAlertAction(title: "حذف الملفات والسجل", style: .destructive) { _ in
+		let all = UIAlertAction(title: L("حذف الملفات والسجل"), style: .destructive) { _ in
 			apps.forEach { _deleteAllCopies(of: $0) }
 			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
-		let recordOnly = UIAlertAction(title: "إزالة من السجل", style: .default) { _ in
+		let recordOnly = UIAlertAction(title: L("إزالة من السجل"), style: .default) { _ in
 			_confirmRecordRemoval(apps, completion: completion)
 		}
-		let cancel = UIAlertAction(title: "إلغاء", style: .cancel)
+		let cancel = UIAlertAction(title: L("إلغاء"), style: .cancel)
 		
 		UIAlertController.showAlert(
-			title: "حذف التطبيق",
-			message: "«حذف الملفات فقط» يُبقي السجل لتستمر متابعة التحديثات. «حذف الملفات والسجل» يزيل التطبيق من «تطبيقاتي» ومن التحديثات.",
+			title: L("حذف التطبيق"),
+			message: L("«حذف الملفات فقط» يُبقي السجل لتستمر متابعة التحديثات. «حذف الملفات والسجل» يزيل التطبيق من «تطبيقاتي» ومن التحديثات."),
 			style: .actionSheet,
 			actions: [filesOnly, all, recordOnly, cancel]
 		)
 	}
 	
 	private static func _confirmRecordRemoval(_ apps: [AppInfoPresentable], completion: (() -> Void)?) {
-		let deleteFiles = UIAlertAction(title: "حذف كل الملفات والنسخ المحمّلة لهذا التطبيق", style: .destructive) { _ in
+		let deleteFiles = UIAlertAction(title: L("حذف كل الملفات والنسخ المحمّلة لهذا التطبيق"), style: .destructive) { _ in
 			apps.forEach { _deleteAllCopies(of: $0) }
 			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
-		let keep = UIAlertAction(title: "إبقاء الملفات", style: .default) { _ in
+		let keep = UIAlertAction(title: L("إبقاء الملفات"), style: .default) { _ in
 			apps.forEach { _removeRecordOnly($0) }
 			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
-		let cancel = UIAlertAction(title: "إلغاء", style: .cancel)
+		let cancel = UIAlertAction(title: L("إلغاء"), style: .cancel)
 		UIAlertController.showAlert(
-			title: "إزالة من السجل",
-			message: "ستتوقف متابعة تحديثات هذا التطبيق.",
+			title: L("إزالة من السجل"),
+			message: L("ستتوقف متابعة تحديثات هذا التطبيق."),
 			style: .actionSheet,
 			actions: [deleteFiles, keep, cancel]
 		)

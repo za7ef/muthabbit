@@ -19,8 +19,8 @@ struct FeatherApp: App {
 	let storage = Storage.shared
 	
 	init() {
-		// Interface is fixed to Arabic.
-		UserDefaults.standard.set(["ar"], forKey: "AppleLanguages")
+		// Interface follows the system language, or the one chosen in Settings.
+		AppLanguage.applyToSystem()
 		// Default install mode: Semi Local (works on recent iOS versions).
 		UserDefaults.standard.register(defaults: [
 			"Feather.serverMethod": 1
@@ -36,8 +36,8 @@ struct FeatherApp: App {
 					.onOpenURL(perform: _handleURL)
 					.transition(.move(edge: .top).combined(with: .opacity))
 			}
-			.environment(\.locale, Locale(identifier: "ar"))
-			.environment(\.layoutDirection, .rightToLeft)
+			.environment(\.locale, AppLanguage.locale)
+			.environment(\.layoutDirection, AppLanguage.layoutDirection)
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
 				QuickInstallManager.shared.reconcileWithDevice()
 				Task { await AutoUpdateChecker.checkNow() }

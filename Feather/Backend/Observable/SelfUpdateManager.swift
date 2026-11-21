@@ -129,16 +129,16 @@ final class SelfUpdateManager {
 	// MARK: UI
 	
 	private func _present(_ info: SelfUpdateInfo, tagKey: String) {
-		var message = info.build > 0 ? "الإصدار \(info.version) (\(info.build))" : "الإصدار \(info.version)"
+		var message = info.build > 0 ? L("الإصدار %@", "\(info.version) (\(info.build))") : L("الإصدار %@", "\(info.version)")
 		if !info.notes.isEmpty {
-			message += "\n\nما الجديد:\n" + String(info.notes.prefix(600))
+			message += "\n\n" + L("ما الجديد:") + "\n" + String(info.notes.prefix(600))
 		}
 		
-		let later = UIAlertAction(title: "لاحقًا", style: .cancel) { [weak self] _ in
+		let later = UIAlertAction(title: L("لاحقًا"), style: .cancel) { [weak self] _ in
 			guard let self else { return }
 			UserDefaults.standard.set(tagKey, forKey: self._skipKey)
 		}
-				let update = UIAlertAction(title: "تحديث", style: .default) { _ in
+				let update = UIAlertAction(title: L("تحديث"), style: .default) { _ in
 			guard let ipa = info.ipaURL else {
 				UIApplication.shared.open(info.pageURL)
 				return
@@ -154,7 +154,7 @@ final class SelfUpdateManager {
 		}
 		
 		UIAlertController.showAlert(
-			title: "تحديث جديد متوفر",
+			title: L("تحديث جديد متوفر"),
 			message: message,
 			actions: [later, update]
 		)

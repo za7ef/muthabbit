@@ -160,7 +160,7 @@ extension LibraryCellView {
 	
 	@ViewBuilder
 	private func _actions(for app: AppInfoPresentable) -> some View {
-		Button("حذف", systemImage: "trash", role: .destructive) {
+		Button(L("حذف"), systemImage: "trash", role: .destructive) {
 			LibraryDeleteHelper.confirmDelete([app])
 		}
 	}
@@ -224,7 +224,7 @@ extension LibraryCellView {
 					}
 				} label: {
 					FRExpirationPillView(
-						title: "فتح",
+						title: L("فتح"),
 						revoked: false,
 						expiration: nil
 					)

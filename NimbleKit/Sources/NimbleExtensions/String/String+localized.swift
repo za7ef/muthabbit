@@ -9,10 +9,15 @@ import Foundation.NSString
 import SwiftUI
 
 /// Bundle used for every `.localized` lookup.
-/// The app interface is fixed to Arabic, regardless of the device language.
+/// Uses the language chosen in Settings ("Muthabbit.language"), otherwise the system language.
 nonisolated(unsafe) private let _nbLocalizationBundle: Bundle = {
+	let supported = ["ar", "en", "fr", "es", "ru", "zh-Hans", "ur", "tr"]
+	let chosen = UserDefaults.standard.string(forKey: "Muthabbit.language") ?? ""
+	let code = chosen.isEmpty
+		? (Bundle.preferredLocalizations(from: supported, forPreferences: Locale.preferredLanguages).first ?? "en")
+		: chosen
 	if
-		let path = Bundle.main.path(forResource: "ar", ofType: "lproj"),
+		let path = Bundle.main.path(forResource: code, ofType: "lproj"),
 		let bundle = Bundle(path: path)
 	{
 		return bundle

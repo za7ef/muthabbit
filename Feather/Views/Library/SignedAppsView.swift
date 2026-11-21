@@ -48,7 +48,7 @@ struct SignedAppsView: View {
 						Button {
 							_quickInstall.installExisting(app)
 						} label: {
-							Text("تثبيت")
+							Text(L("تثبيت"))
 								.font(.subheadline.bold())
 								.padding(.horizontal, 16)
 								.padding(.vertical, 5)
@@ -58,19 +58,19 @@ struct SignedAppsView: View {
 					}
 				}
 				.swipeActions {
-					Button("حذف", systemImage: "trash", role: .destructive) {
+					Button(L("حذف"), systemImage: "trash", role: .destructive) {
 						Storage.shared.deleteApp(for: app)
 					}
-					Button("مشاركة", systemImage: "square.and.arrow.up") {
+					Button(L("مشاركة"), systemImage: "square.and.arrow.up") {
 						_sharing = AnyApp(base: app, archive: true)
 					}
 					.tint(.blue)
 				}
 				.contextMenu {
-					Button("مشاركة ملف IPA", systemImage: "square.and.arrow.up") {
+					Button(L("مشاركة ملف IPA"), systemImage: "square.and.arrow.up") {
 						_sharing = AnyApp(base: app, archive: true)
 					}
-					Button("حذف", systemImage: "trash", role: .destructive) {
+					Button(L("حذف"), systemImage: "trash", role: .destructive) {
 						Storage.shared.deleteApp(for: app)
 					}
 				}
@@ -79,13 +79,13 @@ struct SignedAppsView: View {
 		.overlay {
 			if _items.isEmpty, #available(iOS 17, *) {
 				ContentUnavailableView(
-					"لا توجد تطبيقات موقّعة",
+					L("لا توجد تطبيقات موقّعة"),
 					systemImage: "signature",
-					description: Text("تظهر هنا التطبيقات التي وُقّعت ولم يكتمل تثبيتها.")
+					description: Text(L("تظهر هنا التطبيقات التي وُقّعت ولم يكتمل تثبيتها."))
 				)
 			}
 		}
-		.navigationTitle("الموقّعة")
+		.navigationTitle(L("الموقّعة"))
 		.sheet(item: $_sharing) { item in
 			InstallPreviewView(app: item.base, isSharing: true)
 				.presentationDetents([.height(200)])

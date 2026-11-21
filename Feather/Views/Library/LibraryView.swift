@@ -58,13 +58,13 @@ struct LibraryView: View {
 	private var _upToDate: [Signed] { _installed.filter { !_isInUpdatesSection($0) } }
 	
 	var body: some View {
-		NBNavigationView("تطبيقاتي") {
+		NBNavigationView(L("تطبيقاتي")) {
 			ScrollView {
 				VStack(alignment: .leading, spacing: 14) {
 					_banner
 					
 					if !_withUpdates.isEmpty {
-						_header("التحديثات المتوفرة")
+						_header(L("التحديثات المتوفرة"))
 						ForEach(_withUpdates, id: \.objectID) { app in
 							_card(app)
 								.transition(.move(edge: .bottom).combined(with: .opacity))
@@ -72,7 +72,7 @@ struct LibraryView: View {
 					}
 					
 					if !_upToDate.isEmpty {
-						_header("التطبيقات المثبّتة")
+						_header(L("التطبيقات المثبّتة"))
 						ForEach(_upToDate, id: \.objectID) { app in
 							_card(app)
 								.transition(.move(edge: .top).combined(with: .opacity))
@@ -87,9 +87,9 @@ struct LibraryView: View {
 			.overlay {
 				if _installed.isEmpty, _searchText.isEmpty, #available(iOS 17, *) {
 					ContentUnavailableView(
-						"لا توجد تطبيقات مثبّتة",
+						L("لا توجد تطبيقات مثبّتة"),
 						systemImage: "square.grid.2x2",
-						description: Text("تظهر هنا التطبيقات المثبّتة من «المتجر» أو «مشاريعي».")
+						description: Text(L("تظهر هنا التطبيقات المثبّتة من «المتجر» أو «مشاريعي»."))
 					)
 				}
 			}
@@ -101,7 +101,7 @@ struct LibraryView: View {
 					} label: {
 						Image(systemName: "signature")
 					}
-					.accessibilityLabel("الموقّعة")
+					.accessibilityLabel(L("الموقّعة"))
 				}
 				ToolbarItem(placement: .topBarTrailing) {
 					Button {
@@ -109,7 +109,7 @@ struct LibraryView: View {
 					} label: {
 						Image(systemName: "plus")
 					}
-					.accessibilityLabel("تثبيت ملف IPA")
+					.accessibilityLabel(L("تثبيت ملف IPA"))
 				}
 			}
 		}
@@ -141,7 +141,7 @@ struct LibraryView: View {
 				if _updateManager.isChecking {
 					ProgressView().tint(.white)
 				}
-				Text(count == 0 ? "لا توجد تحديثات" : "\(count.formatted()) \(count == 1 ? "تحديث متوفر" : "تحديثات متوفرة") · تحديث الكل")
+				Text(count == 0 ? L("لا توجد تحديثات") : (count == 1 ? L("تحديث واحد متوفر · تحديث الكل") : L("%@ تحديثات متوفرة · تحديث الكل", count.formatted())))
 					.font(.headline)
 					.foregroundStyle(count == 0 ? Color.secondary : Color.white)
 				Spacer()
@@ -201,11 +201,11 @@ struct LibraryView: View {
 		)
 		.contextMenu {
 			if let id = app.identifier {
-				Button("فتح", systemImage: "arrow.up.forward.app") {
+				Button(L("فتح"), systemImage: "arrow.up.forward.app") {
 					UIApplication.openApp(with: id)
 				}
 			}
-			Button("حذف", systemImage: "trash", role: .destructive) {
+			Button(L("حذف"), systemImage: "trash", role: .destructive) {
 				LibraryDeleteHelper.confirmDelete([app])
 			}
 		}
@@ -235,7 +235,7 @@ struct LibraryView: View {
 	private func _pill(_ app: Signed) -> some View {
 		let key = _key(app)
 		if _quickInstall.justFinished.contains(key) {
-			ProgressPill(title: "مثبّت", color: .green, progress: 1, filled: true)
+			ProgressPill(title: L("مثبّت"), color: .green, progress: 1, filled: true)
 		} else if let state = _quickInstall.state(for: key), !state.isFailed {
 			TimelineView(.periodic(from: .now, by: 0.3)) { _ in
 				ProgressPill(
@@ -250,14 +250,14 @@ struct LibraryView: View {
 			Button {
 				_quickInstall.installUpdate(update)
 			} label: {
-				ProgressPill(title: "تحديث", color: .yellow, progress: 1, filled: true)
+				ProgressPill(title: L("تحديث"), color: .yellow, progress: 1, filled: true)
 			}
 			.buttonStyle(.plain)
 		} else {
 			Button {
 				if let id = app.identifier { UIApplication.openApp(with: id) }
 			} label: {
-				ProgressPill(title: "فتح", color: .accentColor, progress: 0, filled: false)
+				ProgressPill(title: L("فتح"), color: .accentColor, progress: 0, filled: false)
 			}
 			.buttonStyle(.plain)
 		}
@@ -265,10 +265,10 @@ struct LibraryView: View {
 	
 	private func _stateTitle(_ state: QuickInstallState) -> String {
 		switch state {
-		case .downloading: return "تنزيل"
-		case .signing: return "توقيع"
-		case .installing: return "تثبيت"
-		case .failed: return "خطأ"
+		case .downloading: return L("تنزيل")
+		case .signing: return L("توقيع")
+		case .installing: return L("تثبيت")
+		case .failed: return L("خطأ")
 		}
 	}
 	

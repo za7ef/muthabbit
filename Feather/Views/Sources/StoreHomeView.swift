@@ -101,8 +101,8 @@ struct StoreHomeView: View {
 							HStack(spacing: 14) {
 								SettingsIcon(systemName: "shippingbox.fill", color: .black)
 								VStack(alignment: .leading) {
-									Text("مشاريعي").font(.headline)
-									Text("تطبيقات مستودعاتك على GitHub").font(.footnote).foregroundStyle(.secondary)
+									Text(L("مشاريعي")).font(.headline)
+									Text(L("تطبيقات مستودعاتك على GitHub")).font(.footnote).foregroundStyle(.secondary)
 								}
 								Spacer()
 								Image(systemName: "chevron.forward").foregroundStyle(.tertiary)
@@ -117,10 +117,10 @@ struct StoreHomeView: View {
 					
 					if !_filtered.isEmpty {
 						HStack(alignment: .firstTextBaseline) {
-							Text(_searchText.isEmpty ? "كل التطبيقات" : "نتائج البحث")
+							Text(_searchText.isEmpty ? L("كل التطبيقات") : L("نتائج البحث"))
 								.font(.title2.bold())
 							Spacer()
-							Text("\(_filtered.count.formatted()) تطبيق من \(_sources.count.formatted()) \((3...10).contains(_sources.count) ? "مصادر" : "مصدر")")
+							Text(L("%@ تطبيق من %@ مصدر", _filtered.count.formatted(), _sources.count.formatted()))
 								.font(.footnote)
 								.foregroundStyle(.secondary)
 						}
@@ -159,16 +159,16 @@ struct StoreHomeView: View {
 			.onChange(of: viewModel.isFinished) { _ in _entries = _buildEntries(); _refilter() }
 			.onChange(of: _sources.count) { _ in _entries = _buildEntries(); _refilter() }
 			.onChange(of: _searchText) { _ in _refilter() }
-			.navigationTitle("المتجر")
+			.navigationTitle(L("المتجر"))
 			.navigationBarTitleDisplayMode(.large)
-			.searchable(text: $_searchText, prompt: "ابحث في التطبيقات")
+			.searchable(text: $_searchText, prompt: L("ابحث في التطبيقات"))
 			.overlay {
 				if _sources.isEmpty {
 					if #available(iOS 17, *) {
 						ContentUnavailableView {
-							Label("لا توجد مصادر", systemImage: "bag")
+							Label(L("لا توجد مصادر"), systemImage: "bag")
 						} description: {
-							Text("تُضاف المصادر من زر المصادر في الأعلى.")
+							Text(L("تُضاف المصادر من زر المصادر في الأعلى."))
 						}
 					}
 				}
@@ -180,7 +180,7 @@ struct StoreHomeView: View {
 					} label: {
 						Image(systemName: "square.stack.3d.up.fill")
 					}
-					.accessibilityLabel("المصادر")
+					.accessibilityLabel(L("المصادر"))
 				}
 			}
 			.refreshable {
@@ -209,13 +209,13 @@ struct StoreHomeView: View {
 			VStack(alignment: .leading, spacing: 0) {
 				VStack(alignment: .leading, spacing: 6) {
 					Spacer(minLength: 150)
-					Text((entry.source.name ?? "المصدر").uppercased())
+					Text((entry.source.name ?? L("المصدر")).uppercased())
 						.font(.footnote.weight(.semibold))
 						.foregroundStyle(.white.opacity(0.8))
-					Text("اكتشف تطبيقات مصادرك")
+					Text(L("اكتشف تطبيقات مصادرك"))
 						.font(.title.bold())
 						.foregroundStyle(.white)
-					Text(entry.source.subtitle ?? "ثبّت أي تطبيق بضغطة واحدة، وتصلك تحديثاته تلقائيًا.")
+					Text(entry.source.subtitle ?? L("ثبّت أي تطبيق بضغطة واحدة، وتصلك تحديثاته تلقائيًا."))
 						.font(.subheadline)
 						.foregroundStyle(.white.opacity(0.85))
 						.lineLimit(2)

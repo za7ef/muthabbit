@@ -122,7 +122,7 @@ final class GitHubAccount: ObservableObject {
 				let uriString = start["verification_uri"] as? String,
 				let uri = URL(string: uriString)
 			else {
-				throw _error(start["error_description"] as? String ?? "تعذّر بدء تسجيل الدخول.")
+				throw _error(start["error_description"] as? String ?? L("تعذّر بدء تسجيل الدخول."))
 			}
 			var interval = max(5, start["interval"] as? Int ?? 5)
 			let expiresIn = start["expires_in"] as? Int ?? 900
@@ -151,12 +151,12 @@ final class GitHubAccount: ObservableObject {
 				switch poll["error"] as? String {
 				case "authorization_pending": continue
 				case "slow_down": interval += 5
-				case "expired_token": throw _error("انتهت صلاحية الرمز. يلزم البدء من جديد.")
-				case "access_denied": throw _error("أُلغي تسجيل الدخول.")
-				default: throw _error(poll["error_description"] as? String ?? "تعذّر تسجيل الدخول.")
+				case "expired_token": throw _error(L("انتهت صلاحية الرمز. يلزم البدء من جديد."))
+				case "access_denied": throw _error(L("أُلغي تسجيل الدخول."))
+				default: throw _error(poll["error_description"] as? String ?? L("تعذّر تسجيل الدخول."))
 				}
 			}
-			throw _error("انتهت صلاحية الرمز. يلزم البدء من جديد.")
+			throw _error(L("انتهت صلاحية الرمز. يلزم البدء من جديد."))
 		} catch is CancellationError {
 		} catch {
 			errorMessage = error.localizedDescription
@@ -197,9 +197,9 @@ final class GitHubAccount: ObservableObject {
 			
 			apps.sort { ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "") }
 			let json: [String: Any] = [
-				"name": "مشاريعي",
+				"name": L("مشاريعي"),
 				"identifier": "com.za7ef.muthabbit.projects",
-				"subtitle": "مستودعات GitHub",
+				"subtitle": L("مستودعات GitHub"),
 				"apps": apps
 			]
 			let data = try JSONSerialization.data(withJSONObject: json)
@@ -277,13 +277,13 @@ final class GitHubAccount: ObservableObject {
 	}
 	
 	nonisolated static func apiStatic(_ path: String) async throws -> Any {
-		guard let token = KeychainStore.get("token") else { throw _staticError("يلزم تسجيل الدخول.") }
+		guard let token = KeychainStore.get("token") else { throw _staticError(L("يلزم تسجيل الدخول.")) }
 		var request = URLRequest(url: URL(string: "https://api.github.com/\(path)")!)
 		request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 		request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
 		let (data, response) = try await URLSession.shared.data(for: request)
 		if let http = response as? HTTPURLResponse, http.statusCode == 401 {
-			throw _staticError("انتهت صلاحية تسجيل الدخول. يلزم تسجيل الدخول مجددًا.")
+			throw _staticError(L("انتهت صلاحية تسجيل الدخول. يلزم تسجيل الدخول مجددًا."))
 		}
 		return try JSONSerialization.jsonObject(with: data)
 	}
@@ -327,31 +327,31 @@ struct GitHubAccountView: View {
 		Form {
 			if let login = account.login {
 				Section {
-					LabeledContent("الحساب", value: "@\(login)")
-					Button("تسجيل الخروج", role: .destructive) {
+					LabeledContent(L("الحساب"), value: "@\(login)")
+					Button(L("تسجيل الخروج"), role: .destructive) {
 						account.signOut()
 					}
 				} footer: {
-					Text("يُحفظ رمز الدخول في سلسلة المفاتيح على هذا الجهاز فقط.")
+					Text(L("يُحفظ رمز الدخول في سلسلة المفاتيح على هذا الجهاز فقط."))
 				}
 			} else {
 				Section {
 					if let code = account.deviceCode {
 						VStack(alignment: .leading, spacing: 8) {
-							Text("رمز التحقق")
+							Text(L("رمز التحقق"))
 								.font(.footnote)
 								.foregroundStyle(.secondary)
 							Text(code.userCode)
 								.font(.system(.title, design: .monospaced).bold())
 								.textSelection(.enabled)
-							Text("نُسخ الرمز تلقائيًا. يُلصق في صفحة GitHub التي فُتحت ثم يُضغط «Authorize».")
+							Text(L("نُسخ الرمز تلقائيًا. يُلصق في صفحة GitHub التي فُتحت ثم يُضغط «Authorize»."))
 								.font(.footnote)
 								.foregroundStyle(.secondary)
 						}
-						Button("فتح صفحة GitHub") {
+						Button(L("فتح صفحة GitHub")) {
 							UIApplication.shared.open(code.verificationURL)
 						}
-						Button("إلغاء", role: .cancel) {
+						Button(L("إلغاء"), role: .cancel) {
 							account.cancelSignIn()
 						}
 					} else {
@@ -359,7 +359,7 @@ struct GitHubAccountView: View {
 							account.startSignIn()
 						} label: {
 							HStack {
-								Text("تسجيل الدخول عبر GitHub")
+								Text(L("تسجيل الدخول عبر GitHub"))
 								if account.isSigningIn {
 									Spacer()
 									ProgressView()
@@ -369,7 +369,7 @@ struct GitHubAccountView: View {
 						.disabled(account.isSigningIn)
 					}
 				} footer: {
-					Text("يتيح تسجيل الدخول عرض مستودعاتك، بما فيها الخاصة، التي تحتوي إصداراتها على ملفات IPA، وتثبيتها ومتابعة تحديثاتها من «مشاريعي». الصلاحية المطلوبة: repo.")
+					Text(L("يتيح تسجيل الدخول عرض مستودعاتك، بما فيها الخاصة، التي تحتوي إصداراتها على ملفات IPA، وتثبيتها ومتابعة تحديثاتها من «مشاريعي». الصلاحية المطلوبة: repo."))
 				}
 			}
 			
@@ -399,7 +399,7 @@ struct MyProjectsView: View {
 							} label: {
 								FRIconCellView(
 									title: app.currentName,
-									subtitle: (app.currentVersion ?? "") + ((app.currentAppVersion?.isBeta ?? false) ? " · تجريبي" : ""),
+									subtitle: (app.currentVersion ?? "") + ((app.currentAppVersion?.isBeta ?? false) ? " · " + L("تجريبي") : ""),
 									iconUrl: app.iconURL
 								)
 							}
@@ -411,15 +411,15 @@ struct MyProjectsView: View {
 				ProgressView()
 			} else if #available(iOS 17, *) {
 				ContentUnavailableView(
-					"لا توجد مشاريع",
+					L("لا توجد مشاريع"),
 					systemImage: "shippingbox",
 					description: Text(account.isSignedIn
-						? "لم يُعثر على مستودعات تحتوي إصداراتها على ملفات IPA."
-						: "يلزم تسجيل الدخول عبر GitHub من الإعدادات.")
+						? L("لم يُعثر على مستودعات تحتوي إصداراتها على ملفات IPA.")
+						: L("يلزم تسجيل الدخول عبر GitHub من الإعدادات."))
 				)
 			}
 		}
-		.navigationTitle("مشاريعي")
+		.navigationTitle(L("مشاريعي"))
 		.refreshable { await account.loadProjects() }
 		.task { if account.projects == nil { await account.loadProjects() } }
 	}

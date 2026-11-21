@@ -68,7 +68,7 @@ struct DownloadButtonView: View {
 						Text(remaining).font(.caption2.weight(.semibold))
 					}
 					if download.totalBytes > 0 {
-						Text("\u{2066}\(_mb(download.bytesDownloaded)) / \(_mb(download.totalBytes))\u{2069} م.ب")
+						Text(L("%@ / %@ م.ب", _mb(download.bytesDownloaded), _mb(download.totalBytes)))
 							.font(.caption2)
 					}
 				}
@@ -86,7 +86,7 @@ struct DownloadButtonView: View {
 			let bytes = app.size ?? app.currentAppVersion?.size.map(Int64.init) ?? app.backupSize,
 			bytes > 0
 		{
-			Text("\(_mb(bytes)) م.ب")
+			Text(L("%@ م.ب", _mb(bytes)))
 				.font(.caption2)
 				.foregroundStyle(.tertiary)
 		}
@@ -102,20 +102,16 @@ struct DownloadButtonView: View {
 		guard elapsed > 1 else { return nil }
 		let rate = Double(d.bytesDownloaded) / elapsed
 		let secs = Double(d.totalBytes - d.bytesDownloaded) / max(rate, 1)
-		if secs < 60 { return "أقل من دقيقة" }
-		let mins = Int(secs / 60)
-		let h = mins / 60, m = mins % 60
-		func minutes(_ n: Int) -> String {
-			switch n {
-			case 1: return "دقيقة"
-			case 2: return "دقيقتان"
-			case 3...10: return "\(n) دقائق"
-			default: return "\(n) دقيقة"
-			}
-		}
-		if h == 0 { return minutes(m) }
-		let hours = h == 1 ? "ساعة" : (h == 2 ? "ساعتان" : "\(h) ساعات")
-		return m == 0 ? hours : "\(hours) و\(minutes(m))"
+		if secs < 60 { return L("أقل من دقيقة") }
+		// The system formatter handles plurals (incl. Arabic dual) in every language.
+		let f = DateComponentsFormatter()
+		f.allowedUnits = secs >= 3600 ? [.hour, .minute] : [.minute]
+		f.unitsStyle = .full
+		f.maximumUnitCount = 2
+		var cal = Calendar.current
+		cal.locale = AppLanguage.locale
+		f.calendar = cal
+		return f.string(from: secs) ?? ""
 	}
 	
 	private var _button: some View {
@@ -152,7 +148,7 @@ struct DownloadButtonView: View {
 				Button {
 					UIApplication.openApp(with: id)
 				} label: {
-					Text("فتح")
+					Text(L("فتح"))
 						.lineLimit(0)
 						.font(.headline.bold())
 						.foregroundStyle(Color.accentColor)

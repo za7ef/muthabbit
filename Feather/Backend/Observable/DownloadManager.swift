@@ -275,7 +275,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
 				NotificationCenter.default.post(
 					name: Notification.Name("Muthabbit.importFinished"),
 					object: nil,
-					userInfo: ["id": download.id, "error": error?.localizedDescription ?? "تعذّر التنزيل."]
+					userInfo: ["id": download.id, "error": error?.localizedDescription ?? L("تعذّر التنزيل.")]
 				)
 			}
 		}

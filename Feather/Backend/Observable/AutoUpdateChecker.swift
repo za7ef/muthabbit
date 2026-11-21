@@ -21,7 +21,8 @@ enum AutoUpdateChecker {
 		guard !defaults.bool(forKey: _didAddDefaultSourceKey) else { return }
 		defaults.set(true, forKey: _didAddDefaultSourceKey)
 		
-		guard Storage.shared.getSources().isEmpty else { return }
+		// Added once on first launch (even if other sources exist); never re-added after deletion.
+		guard !Storage.shared.getSources().contains(where: { $0.sourceURL?.absoluteString == AppInfo.defaultSourceURL }) else { return }
 		FR.handleSource(AppInfo.defaultSourceURL) {}
 	}
 	

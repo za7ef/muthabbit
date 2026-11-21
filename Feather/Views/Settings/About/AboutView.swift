@@ -21,14 +21,14 @@ extension AboutView {
 // MARK: - View
 struct AboutView: View {
 	private let _credits: [CreditsModel] = [
-		.init(name: "Feather", desc: "المشروع الأساسي — claration (samara) · GPL-3.0", url: "https://github.com/claration/feather"),
-		.init(name: "Asami", desc: "مساهم في Feather", url: "https://github.com/Nyasami"),
-		.init(name: "AltSourceKit", desc: "قراءة مصادر AltStore — llsc12", url: "https://github.com/llsc12"),
-		.init(name: "Zsign", desc: "محرك التوقيع — zhlynn", url: "https://github.com/zhlynn/zsign"),
-		.init(name: "IDeviceKit", desc: "أدوات التثبيت — khcrysalis", url: "https://github.com/khcrysalis/IDeviceKit"),
-		.init(name: "Nuke", desc: "تحميل الصور — kean · MIT", url: "https://github.com/kean/Nuke"),
-		.init(name: "Vapor", desc: "خادم التثبيت المحلي · MIT", url: "https://github.com/vapor/vapor"),
-		.init(name: "Zip / SWCompression", desc: "فك الضغط · MIT", url: "https://github.com/marmelroy/Zip")
+		.init(name: "Feather", desc: L("المشروع الأساسي — claration (samara) · GPL-3.0"), url: "https://github.com/claration/feather"),
+		.init(name: "Asami", desc: L("مساهم في Feather"), url: "https://github.com/Nyasami"),
+		.init(name: "AltSourceKit", desc: L("قراءة مصادر AltStore — llsc12"), url: "https://github.com/llsc12"),
+		.init(name: "Zsign", desc: L("محرك التوقيع — zhlynn"), url: "https://github.com/zhlynn/zsign"),
+		.init(name: "IDeviceKit", desc: L("أدوات التثبيت — khcrysalis"), url: "https://github.com/khcrysalis/IDeviceKit"),
+		.init(name: "Nuke", desc: L("تحميل الصور — kean · MIT"), url: "https://github.com/kean/Nuke"),
+		.init(name: "Vapor", desc: L("خادم التثبيت المحلي · MIT"), url: "https://github.com/vapor/vapor"),
+		.init(name: "Zip / SWCompression", desc: L("فك الضغط · MIT"), url: "https://github.com/marmelroy/Zip")
 	]
 	
 	// MARK: Body
@@ -43,7 +43,7 @@ struct AboutView: View {
 						.bold()
 						.foregroundStyle(Color.accentColor)
 					
-					Text("الإصدار \(AppInfo.marketingVersion) — البناء \(AppInfo.buildNumber)")
+					Text(L("الإصدار %@ — البناء %@", AppInfo.marketingVersion, AppInfo.buildNumber))
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 				}
@@ -52,12 +52,12 @@ struct AboutView: View {
 			.listRowBackground(Color.clear)
 			
 			Section {
-				Text("أداة مبسّطة لإضافة مصادر التطبيقات، وتصفّحها، وتثبيت التطبيقات بشهادة خاصة، مع التنبيه عند توفر تحديث لأي تطبيق مثبّت من مصدر.")
+				Text(L("أداة مبسّطة لإضافة مصادر التطبيقات، وتصفّحها، وتثبيت التطبيقات بشهادة خاصة، مع التنبيه عند توفر تحديث لأي تطبيق مثبّت من مصدر."))
 					.fixedSize(horizontal: false, vertical: true)
-				_row(title: "الإصدار", value: AppInfo.marketingVersion)
-				_row(title: "رقم البناء", value: AppInfo.buildNumber)
+				_row(title: L("الإصدار"), value: AppInfo.marketingVersion)
+				_row(title: L("رقم البناء"), value: AppInfo.buildNumber)
 			} header: {
-				Text("معلومات التطبيق")
+				Text(L("معلومات التطبيق"))
 			}
 			
 			Section {
@@ -65,7 +65,7 @@ struct AboutView: View {
 					UIApplication.shared.open(AppInfo.developerURL)
 				} label: {
 					HStack {
-						Label("المطوّر: github.com/za7ef", systemImage: "chevron.left.forwardslash.chevron.right")
+						Label(L("المطوّر: github.com/za7ef"), systemImage: "chevron.left.forwardslash.chevron.right")
 						Spacer()
 						Image(systemName: "arrow.up.left")
 							.foregroundColor(.secondary.opacity(0.65))
@@ -75,14 +75,14 @@ struct AboutView: View {
 					UIApplication.shared.open(AppInfo.repositoryURL)
 				} label: {
 					HStack {
-						Label("الشيفرة المصدرية", systemImage: "doc.text")
+						Label(L("الشيفرة المصدرية"), systemImage: "doc.text")
 						Spacer()
 						Image(systemName: "arrow.up.left")
 							.foregroundColor(.secondary.opacity(0.65))
 					}
 				}
 			} header: {
-				Text("المطوّر")
+				Text(L("المطوّر"))
 			}
 			
 			Section {
@@ -102,21 +102,21 @@ struct AboutView: View {
 					}
 				}
 			} header: {
-				Text("الشكر والتراخيص")
+				Text(L("الشكر والتراخيص"))
 			} footer: {
-				Text("هذا التطبيق نسخة معدّلة ومبسّطة من Feather، ويُوزَّع بموجب رخصة GPL-3.0، وتبقى حقوق المكتبات المستخدمة لأصحابها وفق تراخيصها.")
+				Text(L("هذا التطبيق نسخة معدّلة ومبسّطة من Feather، ويُوزَّع بموجب رخصة GPL-3.0، وتبقى حقوق المكتبات المستخدمة لأصحابها وفق تراخيصها."))
 			}
 			
 			Section {
 				NavigationLink(destination: TermsOfUseView()) {
-					Label("سياسة الاستخدام", systemImage: "doc.plaintext")
+					Label(L("سياسة الاستخدام"), systemImage: "doc.plaintext")
 				}
 				NavigationLink(destination: PrivacyPolicyView()) {
-					Label("سياسة الخصوصية", systemImage: "hand.raised")
+					Label(L("سياسة الخصوصية"), systemImage: "hand.raised")
 				}
 			}
 		}
-		.navigationTitle("حول التطبيق")
+		.navigationTitle(L("حول التطبيق"))
 		.navigationBarTitleDisplayMode(.inline)
 	}
 	

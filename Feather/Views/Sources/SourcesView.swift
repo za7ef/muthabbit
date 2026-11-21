@@ -30,7 +30,7 @@ struct SourcesView: View {
 	
 	// MARK: Body
 	var body: some View {
-		NBNavigationView("المصادر") {
+		NBNavigationView(L("المصادر")) {
 			NBListAdaptable {
 				if !_filteredSources.isEmpty {
 					Section {
@@ -41,7 +41,7 @@ struct SourcesView: View {
 							HStack(spacing: 18) {
 								Image("Repositories").appIconStyle()
 								NBTitleWithSubtitleView(
-									title: "كل المصادر",
+									title: L("كل المصادر"),
 									subtitle: .localized("See all apps from your sources")
 								)
 							}
@@ -57,7 +57,7 @@ struct SourcesView: View {
 					}
 					
 					NBSection(
-						"المصادر",
+						L("المصادر"),
 						secondary: _filteredSources.count.description
 					) {
 						ForEach(_filteredSources) { source in
@@ -76,7 +76,7 @@ struct SourcesView: View {
 				if _filteredSources.isEmpty {
 					if #available(iOS 17, *) {
 						ContentUnavailableView {
-							Label("لا توجد مصادر", systemImage: "globe.desk.fill")
+							Label(L("لا توجد مصادر"), systemImage: "globe.desk.fill")
 						} description: {
 							Text(.localized("Get started by adding your first repository."))
 						} actions: {

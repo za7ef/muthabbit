@@ -24,14 +24,14 @@ struct VersionHistoryView: View {
 				ForEach(versions) { version in
 					VStack(alignment: .leading, spacing: 8) {
 						HStack {
-							Text(version.isBeta ? "تجريبي" : "رسمي")
+							Text(version.isBeta ? L("تجريبي") : L("رسمي"))
 								.font(.caption.bold())
 								.padding(.horizontal, 8)
 								.padding(.vertical, 3)
 								.background((version.isBeta ? Color.orange : Color.green).opacity(0.18), in: Capsule())
 								.foregroundStyle(version.isBeta ? Color.orange : Color.green)
 							if let build = version.build {
-								Text("البناء \(build)")
+								Text(L("البناء %@", "\(build)"))
 									.font(.caption)
 									.foregroundStyle(.secondary)
 							}
@@ -54,7 +54,7 @@ struct VersionHistoryView: View {
 											)
 										)
 									} label: {
-										Text("تثبيت")
+										Text(L("تثبيت"))
 											.font(.subheadline.bold())
 											.padding(.horizontal, 16)
 											.padding(.vertical, 5)
