@@ -41,6 +41,7 @@ struct FeatherApp: App {
 			.environment(\.locale, Locale(identifier: "ar"))
 			.environment(\.layoutDirection, .rightToLeft)
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+				QuickInstallManager.shared.reconcileWithDevice()
 				Task { await AutoUpdateChecker.checkNow() }
 			}
 			.task {

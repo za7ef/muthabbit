@@ -44,7 +44,60 @@ final class QuickInstallManager: ObservableObject {
 	/// Keyed by the app bundle identifier (or the download id when unknown).
 	@Published private(set) var states: [String: QuickInstallState] = [:]
 	/// Bundle ids with a confirmed successful install (the "تطبيقاتي" list).
-	@Published private(set) var installedIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
+	@Published private(set) var installedIDs: Set<String> = QuickInstallManager._loadInstalled()
+	
+	/// Install history lives in Application Support (kept across app updates, never in Caches/tmp),
+	/// mirrored to UserDefaults; both are merged on load so neither copy can wipe the other.
+	private static var _recordsURL: URL {
+		let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+			.appendingPathComponent("Muthabbit", isDirectory: true)
+		try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+		return dir.appendingPathComponent("installed-apps.json")
+	}
+	
+	private static func _loadInstalled() -> Set<String> {
+		var ids = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
+		if
+			let data = try? Data(contentsOf: _recordsURL),
+			let fromFile = try? JSONDecoder().decode([String].self, from: data)
+		{
+			ids.formUnion(fromFile)
+		}
+		return ids
+	}
+	
+	private func _saveInstalled() {
+		let list = Array(installedIDs).sorted()
+		UserDefaults.standard.set(list, forKey: "Muthabbit.installedBundleIDs")
+		if let data = try? JSONEncoder().encode(list) {
+			try? data.write(to: Self._recordsURL, options: [.atomic])
+		}
+	}
+	
+	/// Asks iOS whether an app with this bundle id is installed (LSApplicationWorkspace).
+	nonisolated static func isAppInstalledOnDevice(_ bundleID: String) -> Bool {
+		guard
+			let cls = NSClassFromString("LSApplicationWorkspace") as? NSObject.Type,
+			let ws = cls.perform(NSSelectorFromString("defaultWorkspace"))?.takeUnretainedValue() as? NSObject
+		else { return false }
+		let sel = NSSelectorFromString("applicationIsInstalled:")
+		guard ws.responds(to: sel) else { return false }
+		typealias Fn = @convention(c) (AnyObject, Selector, NSString) -> Bool
+		let fn = unsafeBitCast(ws.method(for: sel), to: Fn.self)
+		return fn(ws, sel, bundleID as NSString)
+	}
+	
+	/// Restores the record for any stored signed app that iOS reports as installed.
+	func reconcileWithDevice() {
+		let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+		let ids = Set(((try? Storage.shared.context.fetch(req)) ?? []).compactMap(\.identifier))
+		var changed = false
+		for id in ids where !installedIDs.contains(id) && Self.isAppInstalledOnDevice(id) {
+			installedIDs.insert(id)
+			changed = true
+		}
+		if changed { _saveInstalled() }
+	}
 	/// Signed copy produced by the current attempt, deleted if the install fails or is canceled.
 	private var _attemptSigned: [String: String] = [:]
 	/// key → download id (for the inline progress ring and cancel).
@@ -65,12 +118,12 @@ final class QuickInstallManager: ObservableObject {
 	
 	func markInstalled(_ bundleID: String) {
 		installedIDs.insert(bundleID)
-		UserDefaults.standard.set(Array(installedIDs), forKey: "Muthabbit.installedBundleIDs")
+		_saveInstalled()
 	}
 	
 	func unmarkInstalled(_ bundleID: String) {
 		installedIDs.remove(bundleID)
-		UserDefaults.standard.set(Array(installedIDs), forKey: "Muthabbit.installedBundleIDs")
+		_saveInstalled()
 	}
 	
 	/// download id → (state key, is update)
@@ -133,6 +186,7 @@ final class QuickInstallManager: ObservableObject {
 	func activate() {
 		// This app is installed by definition; it shows in "تطبيقاتي" once a signed copy exists.
 		if let own = Bundle.main.bundleIdentifier { markInstalled(own) }
+		reconcileWithDevice()
 	}
 	
 	func state(for key: String?) -> QuickInstallState? {
