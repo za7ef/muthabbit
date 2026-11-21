@@ -393,18 +393,17 @@ struct MyProjectsView: View {
 			if let repo = account.projects, !repo.apps.isEmpty {
 				List {
 					ForEach(repo.apps, id: \.currentUniqueId) { app in
-						NavigationLink {
-							SourceAppsDetailView(sourceURL: GitHubAccount.projectsSourceURL, source: repo, app: app)
-						} label: {
-							HStack(spacing: 12) {
+						HStack(spacing: 12) {
+							NavigationLink {
+								SourceAppsDetailView(sourceURL: GitHubAccount.projectsSourceURL, source: repo, app: app)
+							} label: {
 								FRIconCellView(
 									title: app.currentName,
 									subtitle: (app.currentVersion ?? "") + ((app.currentAppVersion?.isBeta ?? false) ? " · تجريبي" : ""),
 									iconUrl: app.iconURL
 								)
-								Spacer()
-								DownloadButtonView(sourceURL: GitHubAccount.projectsSourceURL, source: repo, app: app)
 							}
+							DownloadButtonView(sourceURL: GitHubAccount.projectsSourceURL, source: repo, app: app)
 						}
 					}
 				}

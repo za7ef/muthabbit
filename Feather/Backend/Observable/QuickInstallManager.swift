@@ -34,6 +34,20 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// Keyed by the app bundle identifier (or the download id when unknown).
 	@Published private(set) var states: [String: QuickInstallState] = [:]
+	/// Bundle ids with a confirmed successful install (the "تطبيقاتي" list).
+	@Published private(set) var installedIDs: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "Muthabbit.installedBundleIDs") ?? [])
+	/// Signed copy produced by the current attempt, deleted if the install fails or is canceled.
+	private var _attemptSigned: [String: String] = [:]
+	
+	func markInstalled(_ bundleID: String) {
+		installedIDs.insert(bundleID)
+		UserDefaults.standard.set(Array(installedIDs), forKey: "Muthabbit.installedBundleIDs")
+	}
+	
+	func unmarkInstalled(_ bundleID: String) {
+		installedIDs.remove(bundleID)
+		UserDefaults.standard.set(Array(installedIDs), forKey: "Muthabbit.installedBundleIDs")
+	}
 	
 	/// download id → (state key, is update)
 	private var _pending: [String: (key: String, isUpdate: Bool)] = [:]
@@ -82,7 +96,10 @@ final class QuickInstallManager: ObservableObject {
 	}
 	
 	/// Must be called once at launch so the observers are registered.
-	func activate() {}
+	func activate() {
+		// This app is installed by definition; it shows in "تطبيقاتي" once a signed copy exists.
+		if let own = Bundle.main.bundleIdentifier { markInstalled(own) }
+	}
 	
 	func state(for key: String?) -> QuickInstallState? {
 		guard let key else { return nil }
@@ -151,7 +168,7 @@ final class QuickInstallManager: ObservableObject {
 			return
 		}
 		
-		guard let imported = _newestImported() else {
+		guard let imported = _importedMatching(pending.key) else {
 			_fail(pending.key, "تعذّر العثور على الملف بعد التنزيل.")
 			return
 		}
@@ -196,10 +213,11 @@ final class QuickInstallManager: ObservableObject {
 				Storage.shared.deleteApp(for: app)
 			}
 			
-			guard let signed = self._newestSigned() else {
+			guard let signed = self._newestSigned(matching: app.identifier) else {
 				self._fail(key, "تعذّر العثور على التطبيق بعد التوقيع.")
 				return
 			}
+			self._attemptSigned[key] = signed.uuid
 			self._install(signed, key: key)
 		}
 	}
@@ -332,6 +350,8 @@ final class QuickInstallManager: ObservableObject {
 	private func _finish(_ key: String) {
 		states[key] = nil
 		_fallbackTried.remove(key)
+		_attemptSigned[key] = nil
+		if let id = _bundleIDs[key] { markInstalled(id) }
 		if _installingKey == key {
 			_teardownInstall()
 		}
@@ -351,6 +371,13 @@ final class QuickInstallManager: ObservableObject {
 	private func _fail(_ key: String, _ message: String) {
 		states[key] = .failed(message)
 		_fallbackTried.remove(key)
+		// No record for a failed/canceled install: drop the signed copy made for this attempt.
+		if let uuid = _attemptSigned.removeValue(forKey: key) {
+			let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+			req.predicate = NSPredicate(format: "uuid == %@", uuid)
+			((try? Storage.shared.context.fetch(req)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
+		}
+		Task.detached(priority: .background) { StorageCleaner.cleanTemporaryFiles() }
 		if _installingKey == key {
 			_teardownInstall()
 		}
@@ -457,6 +484,27 @@ final class QuickInstallManager: ObservableObject {
 		request.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
 		request.fetchLimit = 1
 		return try? Storage.shared.context.fetch(request).first
+	}
+	
+	/// The import produced by this download: matched by bundle id (source app id) when possible.
+	private func _importedMatching(_ key: String) -> Imported? {
+		let request: NSFetchRequest<Imported> = Imported.fetchRequest()
+		request.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
+		request.predicate = NSPredicate(format: "identifier == %@", key)
+		request.fetchLimit = 1
+		if let match = try? Storage.shared.context.fetch(request).first { return match }
+		return _newestImported()
+	}
+	
+	private func _newestSigned(matching bundleID: String?) -> Signed? {
+		if let bundleID {
+			let request: NSFetchRequest<Signed> = Signed.fetchRequest()
+			request.sortDescriptors = [NSSortDescriptor(keyPath: \Signed.date, ascending: false)]
+			request.predicate = NSPredicate(format: "identifier == %@", bundleID)
+			request.fetchLimit = 1
+			if let match = try? Storage.shared.context.fetch(request).first { return match }
+		}
+		return _newestSigned()
 	}
 	
 	private func _newestSigned() -> Signed? {
@@ -575,6 +623,7 @@ enum LibraryDeleteHelper {
 		}
 		let all = UIAlertAction(title: "حذف الملفات والسجل", style: .destructive) { _ in
 			apps.forEach { _deleteAllCopies(of: $0) }
+			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
 		let recordOnly = UIAlertAction(title: "إزالة من السجل", style: .default) { _ in
@@ -593,10 +642,12 @@ enum LibraryDeleteHelper {
 	private static func _confirmRecordRemoval(_ apps: [AppInfoPresentable], completion: (() -> Void)?) {
 		let deleteFiles = UIAlertAction(title: "حذف كل الملفات والنسخ المحمّلة لهذا التطبيق", style: .destructive) { _ in
 			apps.forEach { _deleteAllCopies(of: $0) }
+			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
 		let keep = UIAlertAction(title: "إبقاء الملفات", style: .default) { _ in
 			apps.forEach { _removeRecordOnly($0) }
+			apps.compactMap(\.identifier).forEach { QuickInstallManager.shared.unmarkInstalled($0) }
 			completion?()
 		}
 		let cancel = UIAlertAction(title: "إلغاء", style: .cancel)
