@@ -12,6 +12,7 @@ import SwiftUI
 import CoreData
 import NimbleViews
 import NukeUI
+import UniformTypeIdentifiers
 import AltSourceKit
 
 struct LibraryView: View {
