@@ -184,6 +184,11 @@ final class QuickInstallManager: ObservableObject {
 	}
 	/// Signed copy produced by the current attempt, deleted if the install fails or is canceled.
 	private var _attemptSigned: [String: String] = [:]
+	/// key → progress of the install step (0…1): packaging the IPA (first 30 %), then the
+	/// installation itself as reported by iOS (remaining 70 %). Absent while not measurable.
+	@Published private(set) var installProgress: [String: Double] = [:]
+	private var _packagingTicker: Task<Void, Never>?
+	
 	/// key → download id (for the inline progress ring and cancel).
 	@Published private(set) var downloadIDs: [String: String] = [:]
 	/// Keys that just finished, shown briefly as «مُحدَّث» before moving down.
@@ -484,6 +489,21 @@ final class QuickInstallManager: ObservableObject {
 				return
 			}
 			
+			// Packaging progress (zip of the signed app) until iOS starts installing.
+			installProgress[key] = 0
+			_packagingTicker?.cancel()
+			_packagingTicker = Task { @MainActor [weak self] in
+				while !Task.isCancelled {
+					guard let self, self._installingKey == key else { return }
+					if case .none = viewModel.status {
+						self.installProgress[key] = 0.3 * min(max(viewModel.packageProgress, 0), 1)
+					} else if case .ready = viewModel.status {
+						self.installProgress[key] = 0.3
+					}
+					try? await Task.sleep(nanoseconds: 250_000_000)
+				}
+			}
+			
 			let serverMethod = methodOverride ?? UserDefaults.standard.integer(forKey: "Feather.serverMethod")
 			ServerInstaller.methodOverride = serverMethod
 			let bundleID = app.identifier ?? ""
@@ -520,7 +540,7 @@ final class QuickInstallManager: ObservableObject {
 						self._watchdog?.cancel()
 					case .installing:
 						if self._progressTask == nil, !bundleID.isEmpty {
-							self._progressTask = self._pollInstall(bundleID: bundleID, viewModel: viewModel)
+							self._progressTask = self._pollInstall(bundleID: bundleID, key: key, viewModel: viewModel)
 						}
 					case .completed:
 						self._finish(key)
@@ -577,6 +597,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _finish(_ key: String) {
 		states[key] = nil
+		installProgress[key] = nil
 		justFinished.insert(key)
 		Task { @MainActor [weak self] in
 			try? await Task.sleep(nanoseconds: 1_600_000_000)
@@ -607,6 +628,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _fail(_ key: String, _ message: String) {
 		states[key] = .failed(message)
+		installProgress[key] = nil
 		_fallbackTried.remove(key)
 		// No install record for a failed/canceled install; the signed copy stays in «الموقّعة».
 		_attemptSigned[key] = nil
@@ -626,6 +648,8 @@ final class QuickInstallManager: ObservableObject {
 		ServerInstaller.methodOverride = nil
 		_progressTask?.cancel()
 		_progressTask = nil
+		_packagingTicker?.cancel()
+		_packagingTicker = nil
 		_statusCancellable?.cancel()
 		_statusCancellable = nil
 		_dismissSafari()
@@ -644,13 +668,21 @@ final class QuickInstallManager: ObservableObject {
 		}
 	}
 	
-	private func _pollInstall(bundleID: String, viewModel: InstallerStatusViewModel) -> Task<Void, Never> {
+	private func _pollInstall(bundleID: String, key: String, viewModel: InstallerStatusViewModel) -> Task<Void, Never> {
 		Task.detached(priority: .background) {
 			var hasStarted = false
 			let begin = Date()
 			while !Task.isCancelled {
 				let raw = await UIApplication.installProgress(for: bundleID) ?? 0.0
-				if raw > 0 { hasStarted = true }
+				if raw > 0 {
+					hasStarted = true
+					await MainActor.run {
+						let value = 0.3 + 0.7 * min(raw, 1)
+						let current = QuickInstallManager.shared.installProgress[key] ?? 0
+						// Never moves backwards.
+						QuickInstallManager.shared.installProgress[key] = max(current, value)
+					}
+				}
 				// Never poll forever: iOS did not start (2 min) or did not finish (10 min).
 				let elapsed = Date().timeIntervalSince(begin)
 				if (!hasStarted && elapsed > 120) || elapsed > 600 {

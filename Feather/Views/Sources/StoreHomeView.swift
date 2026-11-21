@@ -817,6 +817,12 @@ struct StoreCategory: Identifiable, Equatable {
 		return _aliases[compact] ?? _aliases[trimmed] ?? trimmed
 	}
 	
+	/// Display name for a raw source category (translated when known, else as written).
+	static func displayTitle(for raw: String?) -> String? {
+		guard let raw, let key = key(for: raw) else { return nil }
+		return _titles[key].map { L($0) } ?? raw.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
+	
 	static func build(from entries: [StoreAppEntry]) -> [StoreCategory] {
 		var counts: [String: Int] = [:]
 		var titles: [String: String] = [:]

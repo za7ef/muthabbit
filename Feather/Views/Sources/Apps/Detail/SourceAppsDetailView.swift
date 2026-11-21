@@ -202,8 +202,8 @@ struct SourceAppsDetailView: View {
 							_infoRow(title: .localized("Size"), value: size.formattedByteCount)
 						}
 						
-						if let category = app.category {
-							_infoRow(title: .localized("Category"), value: category.capitalized)
+						if let category = StoreCategory.displayTitle(for: app.category) {
+							_infoRow(title: .localized("Category"), value: category)
 						}
 						
 						if let version = app.currentVersion {
@@ -387,7 +387,7 @@ extension SourceAppsDetailView {
 		var items: [(String, String, String)] = []
 		if let v = app.currentVersion { items.append((L("الإصدار"), v, "tag")) }
 		if let size = app.size { items.append((L("الحجم"), size.formattedByteCount, "archivebox")) }
-		if let c = app.category { items.append((L("الفئة"), c.capitalized, "square.grid.2x2")) }
+		if let c = StoreCategory.displayTitle(for: app.category) { items.append((L("الفئة"), c, "square.grid.2x2")) }
 		if let n = source.name { items.append((L("المصدر"), n, "bag")) }
 		if let d = app.developer { items.append((L("المطوّر"), d, "person.crop.square")) }
 		if let m = app.currentAppVersion?.minOSVersion { items.append((L("الحد الأدنى"), "iOS \(m.description)", "iphone")) }

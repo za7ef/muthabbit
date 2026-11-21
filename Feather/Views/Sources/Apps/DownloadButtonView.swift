@@ -24,8 +24,6 @@ struct DownloadButtonView: View {
 		return !state.isFailed
 	}
 
-	@State private var downloadProgress: Double = 0
-	@State private var cancellable: AnyCancellable?
 
 	@State private var _startedAt: Date?
 	
@@ -60,15 +58,14 @@ struct DownloadButtonView: View {
 	/// and the app size before install.
 	@ViewBuilder
 	private var _statusText: some View {
-		let download = downloadManager.getDownload(by: app.currentUniqueId)
-		if let download {
+		if let download = _currentDownload {
 			TimelineView(.periodic(from: .now, by: 1)) { context in
 				VStack(alignment: .trailing, spacing: 1) {
 					if let remaining = _remaining(download, now: context.date) {
 						Text(remaining).font(.caption2.weight(.semibold))
 					}
 					if download.totalBytes > 0 {
-						Text(L("%@ / %@ م.ب", _mb(download.bytesDownloaded), _mb(download.totalBytes)))
+						Text("\u{2066}\(Int((download.overallProgress * 100).rounded()))%\u{2069} · " + L("%@ / %@ م.ب", _mb(download.bytesDownloaded), _mb(download.totalBytes)))
 							.font(.caption2)
 					}
 				}
@@ -77,10 +74,17 @@ struct DownloadButtonView: View {
 			}
 			.onAppear { if _startedAt == nil { _startedAt = Date() } }
 		} else if let state = quickInstall.state(for: _key), !state.isFailed {
-			Text(state.progressText)
+			if case .installing = state, let progress = quickInstall.installProgress[_key] {
+				Text("\(state.progressText) \u{2066}\(Int((progress * 100).rounded()))%\u{2069}")
+					.font(.caption2)
+					.foregroundStyle(.secondary)
+					.monospacedDigit()
+			} else {
+				Text(state.progressText)
 				.font(.caption2)
 				.foregroundStyle(.secondary)
 				.onAppear { _startedAt = nil }
+			}
 		} else if
 			!(app.id.map { quickInstall.installedIDs.contains($0) } ?? false),
 			let bytes = app.size ?? app.currentAppVersion?.size.map(Int64.init) ?? app.backupSize,
@@ -116,31 +120,41 @@ struct DownloadButtonView: View {
 	
 	private var _button: some View {
 		ZStack {
-			if let currentDownload = downloadManager.getDownload(by: app.currentUniqueId) ?? quickInstall.downloadIDs[_key].flatMap({ downloadManager.getDownload(by: $0) }) {
-				ZStack {
-					Circle()
-						.trim(from: 0, to: downloadProgress)
-						.stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
-						.rotationEffect(.degrees(-90))
-						.frame(width: 31, height: 31)
-						.animation(.smooth, value: downloadProgress)
-
-					Image(systemName: downloadProgress >= 0.75 ? "archivebox" : "square.fill")
-						.foregroundStyle(.tint)
-						.font(.footnote).bold()
-				}
-				.onTapGesture {
-					if downloadProgress <= 0.75 {
-						downloadManager.cancelDownload(currentDownload)
+			if let currentDownload = _currentDownload {
+				// Read straight from the download on a timer: the old Combine subscription lived in
+				// @State shared by two layouts and was cancelled by the layout that disappeared,
+				// so the ring stayed at 0 and only the stop square showed.
+				TimelineView(.periodic(from: .now, by: 0.2)) { _ in
+					let progress = currentDownload.overallProgress
+					ZStack {
+						_ring(progress)
+						Image(systemName: progress >= 0.75 ? "archivebox" : "square.fill")
+							.foregroundStyle(.tint)
+							.font(.system(size: 10, weight: .bold))
+					}
+					.frame(width: 31, height: 31)
+					.contentShape(Circle())
+					.onTapGesture {
+						if currentDownload.overallProgress <= 0.75 {
+							downloadManager.cancelDownload(currentDownload)
+						}
 					}
 				}
 				.compatTransition()
 			} else if _isBusy {
 				ZStack {
-					Circle()
-						.stroke(Color.accentColor.opacity(0.25), lineWidth: 2.3)
-					ProgressView()
-						.controlSize(.small)
+					if case .installing = quickInstall.state(for: _key), let progress = quickInstall.installProgress[_key] {
+						_ring(progress)
+						Image(systemName: "arrow.down.app")
+							.foregroundStyle(.tint)
+							.font(.system(size: 11, weight: .bold))
+					} else {
+						// Signing has no measurable progress (one call to the signing engine).
+						Circle()
+							.stroke(Color.accentColor.opacity(0.25), lineWidth: 2.3)
+						ProgressView()
+							.controlSize(.small)
+					}
 				}
 				.frame(width: 31, height: 31)
 				.compatTransition()
@@ -184,30 +198,26 @@ struct DownloadButtonView: View {
 				.compatTransition()
 			}
 		}
-		.onAppear(perform: setupObserver)
-		.onDisappear { cancellable?.cancel() }
-		.onChange(of: downloadManager.downloads.count) { _ in
-			setupObserver()
-		}
 		.animation(.easeInOut(duration: 0.3), value: downloadManager.getDownload(by: app.currentUniqueId) != nil)
 	}
 
-	private func setupObserver() {
-		cancellable?.cancel()
-		guard let download = downloadManager.getDownload(by: app.currentUniqueId) else {
-			downloadProgress = 0
-			return
+	private var _currentDownload: Download? {
+		downloadManager.getDownload(by: app.currentUniqueId)
+			?? quickInstall.downloadIDs[_key].flatMap { downloadManager.getDownload(by: $0) }
+	}
+	
+	/// App Store-style ring: faint full track plus the filled part.
+	private func _ring(_ progress: Double) -> some View {
+		ZStack {
+			Circle()
+				.stroke(Color.accentColor.opacity(0.25), lineWidth: 2.3)
+			Circle()
+				.trim(from: 0, to: max(0.02, min(progress, 1)))
+				.stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
+				.rotationEffect(.degrees(-90))
+				.animation(.smooth, value: progress)
 		}
-		downloadProgress = download.overallProgress
-
-		let publisher = Publishers.CombineLatest(
-			download.$progress,
-			download.$unpackageProgress
-		)
-
-		cancellable = publisher.sink { _, _ in
-			downloadProgress = download.overallProgress
-		}
+		.frame(width: 31, height: 31)
 	}
 	
 	private func _hasUpdate(_ bundleID: String) -> Bool {
