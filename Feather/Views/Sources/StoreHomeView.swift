@@ -211,6 +211,7 @@ struct StoreHomeView: View {
 			.navigationTitle(L("المتجر"))
 			.batchTranslate(_autoTranslate ? _textsToTranslate : [])
 			.navigationBarTitleDisplayMode(.large)
+			.modifier(_SoftTopEdge())
 			.searchable(text: $_searchText, prompt: L("ابحث في التطبيقات"))
 			.overlay {
 				if _sources.isEmpty {
@@ -549,10 +550,11 @@ struct StoreHomeView: View {
 				if let desc = _shortDescription(entry.app) {
 					Text(_tr(desc)).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
 				}
-				HStack {
+				// Own row for the install button (overlaid below): text never runs under it.
+				HStack(alignment: .center) {
 					Text(_meta(entry.app)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-					Spacer()
-					Color.clear.frame(width: 90, height: 1)
+					Spacer(minLength: 8)
+					Color.clear.frame(width: 96, height: 50)
 				}
 			}
 			.padding(18)
@@ -876,5 +878,42 @@ struct StoreCategory: Identifiable, Equatable {
 				if $0.count != $1.count { return $0.count > $1.count }
 				return $0.title.localizedCompare($1.title) == .orderedAscending
 			}
+	}
+}
+
+// MARK: - Top edge
+
+/// iOS 26-style top edge for the store: no opaque bar band; content fades and blurs
+/// progressively under the title. iOS 26 uses the system soft scroll edge effect; older
+/// versions get a material layer masked with a gradient.
+private struct _SoftTopEdge: ViewModifier {
+	func body(content: Content) -> some View {
+		if #available(iOS 26.0, *) {
+			content
+				.toolbarBackgroundVisibility(.hidden, for: .navigationBar)
+				.scrollEdgeEffectStyle(.soft, for: .top)
+		} else {
+			content
+				.toolbarBackground(.hidden, for: .navigationBar)
+				.overlay(alignment: .top) {
+					GeometryReader { geo in
+						Rectangle()
+							.fill(.ultraThinMaterial)
+							.mask(
+								LinearGradient(
+									stops: [
+										.init(color: .black, location: 0),
+										.init(color: .black.opacity(0.85), location: 0.55),
+										.init(color: .clear, location: 1)
+									],
+									startPoint: .top, endPoint: .bottom
+								)
+							)
+							.frame(height: geo.safeAreaInsets.top + 24)
+							.ignoresSafeArea(edges: .top)
+							.allowsHitTesting(false)
+					}
+				}
+		}
 	}
 }

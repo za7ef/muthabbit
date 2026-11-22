@@ -27,6 +27,24 @@ struct SourceAppsDetailView: View {
 	@State private var _ghDescription: String?
 	
 	/// Source versions plus GitHub release versions, deduped by version string, newest first.
+	/// Version shown under «ما الجديد»: the current one when it has notes, else the newest
+	/// version (incl. GitHub releases) that has notes, else the current one without notes.
+	private var _whatsNew: (version: String, date: Date?, notes: String?)? {
+		func clean(_ s: String?) -> String? {
+			guard let t = s?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
+			return t
+		}
+		let current = app.currentVersion
+		if let current, let own = clean(app.currentAppVersion?.localizedDescription) {
+			return (current, app.currentDate?.date, own)
+		}
+		if let v = _allVersions.first(where: { clean($0.localizedDescription) != nil }) {
+			return (v.version, v.date?.date, clean(v.localizedDescription))
+		}
+		guard let version = current ?? _allVersions.first?.version else { return nil }
+		return (version, app.currentDate?.date ?? _allVersions.first?.date?.date, nil)
+	}
+	
 	private var _allVersions: [ASRepository.App.Version] {
 		var seen = Set<String>()
 		var list: [ASRepository.App.Version] = []
@@ -151,14 +169,13 @@ struct SourceAppsDetailView: View {
 				
 				// Always shown: «جميع الإصدارات» lists source + GitHub release versions.
 				NBSection(.localized("What's New")) {
-					if
-						let currentVer = app.currentVersion,
-						let whatsNewDesc = app.currentAppVersion?.localizedDescription
-					{
+					// Latest notes: source text, else the newest version (incl. GitHub releases) that has
+					// notes; when none exist, a short line instead of an empty block.
+					if let info = _whatsNew {
 						AppVersionInfo(
-							version: currentVer,
-							date: app.currentDate?.date,
-							description: whatsNewDesc
+							version: info.version,
+							date: info.date,
+							description: info.notes ?? .localized("No release notes available")
 						)
 					}
 					NavigationLink(
@@ -270,22 +287,22 @@ struct SourceAppsDetailView: View {
 		}
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
+			// Scrolled: small icon + compact install pill together in the center (own item, apart
+			// from the share button), App Store-style. No size line in the toolbar.
 			ToolbarItem(placement: .principal) {
 				if _isHeaderHidden {
-					LazyImage(url: app.iconURL) { state in
-						if let image = state.image {
-							image.appIconStyle(size: 30, isCircle: false)
-						} else {
-							Image("App_Unknown").appIconStyle(size: 30, isCircle: false)
+					HStack(spacing: 10) {
+						LazyImage(url: app.iconURL) { state in
+							if let image = state.image {
+								image.appIconStyle(size: 28, isCircle: false)
+							} else {
+								Image("App_Unknown").appIconStyle(size: 28, isCircle: false)
+							}
 						}
+						DownloadButtonView(sourceURL: sourceURL, source: source, app: app, compact: true)
 					}
+					.frame(maxHeight: .infinity, alignment: .center)
 					.transition(.opacity)
-				}
-			}
-			ToolbarItem(placement: .topBarTrailing) {
-				if _isHeaderHidden {
-					DownloadButtonView(sourceURL: sourceURL, source: source, app: app)
-						.transition(.opacity)
 				}
 			}
 			NBToolbarButton(

@@ -17,6 +17,8 @@ struct DownloadButtonView: View {
 	let sourceURL: URL?
 	let source: ASRepository?
 	let app: ASRepository.App
+	/// Toolbar style: small pill only, no size/status line under it.
+	var compact: Bool = false
 	@ObservedObject private var downloadManager = DownloadManager.shared
 	@ObservedObject private var quickInstall = QuickInstallManager.shared
 	
@@ -32,7 +34,13 @@ struct DownloadButtonView: View {
 	
 	var body: some View {
 		// The button never shrinks or truncates; status text gives way instead.
-		if _isActive {
+		if compact {
+			_button
+				.fixedSize()
+				.controlSize(.small)
+				.font(.subheadline)
+				.environment(\.dynamicTypeSize, .large)
+		} else if _isActive {
 			HStack(spacing: 8) {
 				_statusText
 					.lineLimit(1)
@@ -166,16 +174,27 @@ struct DownloadButtonView: View {
 				.contentShape(Circle())
 				.onTapGesture { quickInstall.cancel(_key) }
 				.compatTransition()
+			} else if app.id == QuickInstallManager.ownBundleID, !_isNewerThanRunning {
+				// This app itself (running now): never «تثبيت»; «محدّث» unless the source has a newer version.
+				Text(L("محدّث"))
+					.lineLimit(0)
+					.font(compact ? .subheadline.bold() : .headline.bold())
+					.foregroundStyle(.secondary)
+					.padding(.horizontal, 20)
+					.padding(.vertical, 6)
+					.background(Color(uiColor: .quaternarySystemFill))
+					.clipShape(Capsule())
+					.compatTransition()
 			} else if let id = app.id, quickInstall.installedIDs.contains(id), !_hasUpdate(id) {
 				Button {
 					UIApplication.openApp(with: id)
 				} label: {
 					Text(L("فتح"))
 						.lineLimit(0)
-						.font(.headline.bold())
+						.font(compact ? .subheadline.bold() : .headline.bold())
 						.foregroundStyle(Color.accentColor)
-						.padding(.horizontal, 24)
-						.padding(.vertical, 6)
+						.padding(.horizontal, compact ? 16 : 24)
+						.padding(.vertical, compact ? 4 : 6)
 						.background(Color(uiColor: .quaternarySystemFill))
 						.clipShape(Capsule())
 				}
@@ -193,12 +212,12 @@ struct DownloadButtonView: View {
 						)
 					}
 				} label: {
-					Text(.localized("Get"))
+					Text(app.id == QuickInstallManager.ownBundleID ? L("تحديث") : .localized("Get"))
 						.lineLimit(0)
-						.font(.headline.bold())
+						.font(compact ? .subheadline.bold() : .headline.bold())
 						.foregroundStyle(Color.accentColor)
-						.padding(.horizontal, 24)
-						.padding(.vertical, 6)
+						.padding(.horizontal, compact ? 16 : 24)
+						.padding(.vertical, compact ? 4 : 6)
 						.background(Color(uiColor: .quaternarySystemFill))
 						.clipShape(Capsule())
 				}
@@ -226,6 +245,12 @@ struct DownloadButtonView: View {
 				.animation(.smooth, value: progress)
 		}
 		.frame(width: 31, height: 31)
+	}
+	
+	/// Source version of this app is newer than the running build.
+	private var _isNewerThanRunning: Bool {
+		guard let remote = app.currentVersion else { return false }
+		return remote.compare(AppInfo.marketingVersion, options: .numeric) == .orderedDescending
 	}
 	
 	private func _hasUpdate(_ bundleID: String) -> Bool {
