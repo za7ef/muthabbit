@@ -201,12 +201,10 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				// Pre-release builds never trigger «تحديث». Only exception: an app with no stable
-				// version at all, already installed as a pre-release (moving to a newer test build).
-				if remoteApp.isCurrentPrerelease {
-					let installedIsPrerelease = ASRepository.App.Version.looksPrerelease(effectiveVersion ?? "")
-					guard installedIsPrerelease else { continue }
-				}
+				// Stable-first is already enforced by `currentAppVersion`: it is a pre-release only
+				// when the app has no stable version at all. Such apps (e.g. Sawt Lite, all builds
+				// published as GitHub pre-releases) still get «تحديث» to their newest build; an app
+				// with any stable version never gets a notice for a pre-release.
 				
 				guard let downloadURL = remoteApp.currentDownloadUrl else {
 					continue
