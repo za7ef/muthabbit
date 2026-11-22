@@ -450,9 +450,7 @@ extension ASRepository {
 			/// Pre-release words in a version text: alpha, beta, b15 (after a digit), rc, pre/preview,
 			/// dev, nightly, canary, experimental, test, build-NN.
 			public static func looksPrerelease(_ value: String) -> Bool {
-				let text = value.lowercased()
-				let pattern = #"(beta|alpha|(?<=\d)[ab]\d+|\brc\d*\b|(?<=\d)rc\d*|\bpre|\bdev\b|nightly|canary|experimental|\btest|build-\d+)"#
-				return text.range(of: pattern, options: .regularExpression) != nil
+				_PrereleaseMatcher.shared.matches(value)
 			}
 
 			public init(from decoder: any Decoder) throws {
@@ -752,5 +750,30 @@ public struct OSVersion: Decodable, Hashable, CustomStringConvertible, Sendable 
 		self.majorVersion = components[safe: 0] ?? 0
 		self.minorVersion = components[safe: 1] ?? 0
 		self.patchVersion = components[safe: 2] ?? 0
+	}
+}
+
+/// Compiled once; results memoized per string. Called from view bodies (every row, every
+/// version), so it must never compile a regex per call.
+final class _PrereleaseMatcher: @unchecked Sendable {
+	static let shared = _PrereleaseMatcher()
+	
+	private let _regex = try! NSRegularExpression(
+		pattern: #"(beta|alpha|(?<=\d)[ab]\d+|\brc\d*\b|(?<=\d)rc\d*|\bpre|\bdev\b|nightly|canary|experimental|\btest|build-\d+)"#,
+		options: [.caseInsensitive]
+	)
+	private var _memo: [String: Bool] = [:]
+	private let _lock = NSLock()
+	
+	func matches(_ value: String) -> Bool {
+		_lock.lock()
+		if let hit = _memo[value] { _lock.unlock(); return hit }
+		_lock.unlock()
+		let result = _regex.firstMatch(in: value, range: NSRange(value.startIndex..., in: value)) != nil
+		_lock.lock()
+		if _memo.count > 4000 { _memo.removeAll() }
+		_memo[value] = result
+		_lock.unlock()
+		return result
 	}
 }

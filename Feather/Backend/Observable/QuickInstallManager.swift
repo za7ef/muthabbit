@@ -577,10 +577,16 @@ final class QuickInstallManager: ObservableObject {
 			_packagingTicker = Task { @MainActor [weak self] in
 				while !Task.isCancelled {
 					guard let self, self._installingKey == key else { return }
+					// Write only real changes: every write republishes the whole manager and
+					// re-renders every install button in the app.
+					var value: Double?
 					if case .none = viewModel.status {
-						self.installProgress[key] = 0.3 * min(max(viewModel.packageProgress, 0), 1)
+						value = 0.3 * min(max(viewModel.packageProgress, 0), 1)
 					} else if case .ready = viewModel.status {
-						self.installProgress[key] = 0.3
+						value = 0.3
+					}
+					if let value, abs((self.installProgress[key] ?? -1) - value) >= 0.01 {
+						self.installProgress[key] = value
 					}
 					try? await Task.sleep(nanoseconds: 250_000_000)
 				}
@@ -797,7 +803,7 @@ final class QuickInstallManager: ObservableObject {
 					await MainActor.run {
 						let value = 0.3 + 0.7 * min(raw, 1)
 						let current = QuickInstallManager.shared.installProgress[key] ?? 0
-						QuickInstallManager.shared.installProgress[key] = max(current, value)
+						if value - current >= 0.01 { QuickInstallManager.shared.installProgress[key] = value }
 					}
 				} else if hasStarted || changed() {
 					await MainActor.run { viewModel.status = .completed(.success(())) }

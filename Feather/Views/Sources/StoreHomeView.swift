@@ -40,10 +40,14 @@ struct StoreHomeView: View {
 		return _translations.get(text, target: AutoTranslate.target) ?? text
 	}
 	
+	/// Featured cards and texts to translate: computed once per data/filter change (in `_refilter`),
+	/// never inside `body` (sorting by date walks every app's versions).
+	@State private var _picks = FeaturedPicks()
+	@State private var _textsToTranslate: [String] = []
+	
 	/// Short texts to translate once per load: every subtitle plus the featured cards' descriptions.
-	private var _textsToTranslate: [String] {
+	private func _computeTextsToTranslate(_ picks: FeaturedPicks) -> [String] {
 		var out = _entries.compactMap { $0.app.subtitle }
-		let picks = _featuredPicks
 		for e in [picks.sourcePick, picks.newThisWeek].compactMap({ $0 }) {
 			if let d = _shortDescription(e.app) { out.append(d) }
 		}
@@ -95,6 +99,10 @@ struct StoreHomeView: View {
 		}
 		_filtered = _computeFiltered()
 		_limit = 30
+		let picks = _computeFeaturedPicks()
+		_picks = picks
+		let texts = _computeTextsToTranslate(picks)
+		if texts != _textsToTranslate { _textsToTranslate = texts }
 	}
 	
 	private func _computeFiltered() -> [StoreAppEntry] {
@@ -127,7 +135,7 @@ struct StoreHomeView: View {
 						}
 						// Themed cards, each with its own layout. Distinct ids (prefixed): the same apps also
 						// appear in the list below; sharing ids inside one LazyVStack made SwiftUI swap views.
-						let picks = _featuredPicks
+						let picks = _picks
 						if let entry = picks.sourcePick {
 							_sourcePickCard(entry).padding(.bottom, 22)
 						}
@@ -372,12 +380,14 @@ struct StoreHomeView: View {
 	/// Only real signals from the sources: `featuredApps` set by the source, and version dates.
 	/// AltStore sources have no ratings or download counts, so nothing here is ranked by popularity.
 	/// Each app appears in one card at most.
-	private var _featuredPicks: FeaturedPicks {
+	private func _computeFeaturedPicks() -> FeaturedPicks {
 		var picks = FeaturedPicks()
 		var used = Set<String>()
 		if let hero = _entries.first { used.insert(hero.id) }
 		let now = Date()
-		func date(_ e: StoreAppEntry) -> Date? { e.app.currentDate?.date }
+		// Dates read once per entry (each read walks the app's versions).
+		let dates = Dictionary(_entries.map { ($0.id, $0.app.currentDate?.date) }, uniquingKeysWith: { a, _ in a })
+		func date(_ e: StoreAppEntry) -> Date? { dates[e.id] ?? nil }
 		func isRecent(_ e: StoreAppEntry, days: Double) -> Bool {
 			guard let d = date(e) else { return false }
 			return d <= now.addingTimeInterval(86_400) && now.timeIntervalSince(d) < days * 86_400
@@ -761,28 +771,35 @@ struct HeroDriftBackground: View {
 	
 	private var _paused: Bool { _reduceMotion || !_isVisible || _scenePhase != .active }
 	
+	/// Built once (not per frame): a new request every tick made each icon look up / reprocess.
+	private var _requests: [ImageRequest] {
+		urls.prefix(4).map {
+			ImageRequest(url: $0, processors: [
+				ImageProcessors.Resize(size: CGSize(width: 256, height: 256), unit: .pixels),
+				ImageProcessors.GaussianBlur(radius: 1)
+			])
+		}
+	}
+	
 	var body: some View {
-		GeometryReader { geo in
-			TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: _paused)) { context in
+		let requests = _requests
+		return GeometryReader { geo in
+			TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: _paused)) { context in
 				let t = context.date.timeIntervalSince(_start)
 				ZStack {
-					ForEach(Array(urls.prefix(4).enumerated()), id: \.offset) { index, url in
+					ForEach(Array(requests.enumerated()), id: \.offset) { index, request in
 						let phase = Double(index) * 1.7
 						let x = cos(t / (9 + Double(index) * 2) + phase) * geo.size.width * 0.3
 						let y = sin(t / (11 + Double(index) * 3) + phase) * geo.size.height * 0.22
 						// Sharp icons (light blur only), so the apps stay recognizable.
 						let side = geo.size.width * 0.34
-						LazyImage(request: ImageRequest(url: url, processors: [
-							ImageProcessors.Resize(size: CGSize(width: 256, height: 256), unit: .pixels),
-							ImageProcessors.GaussianBlur(radius: 1)
-						])) { state in
+						LazyImage(request: request) { state in
 							if let image = state.image {
 								image.resizable().scaledToFill()
 							}
 						}
 						.frame(width: side, height: side)
 						.clipShape(RoundedRectangle(cornerRadius: side * 0.225, style: .continuous))
-						.shadow(color: .black.opacity(0.25), radius: 8, y: 4)
 						.opacity(0.9)
 						.position(
 							x: geo.size.width * (0.2 + 0.2 * Double(index)) + x,
