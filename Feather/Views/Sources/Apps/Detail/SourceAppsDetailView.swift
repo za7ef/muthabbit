@@ -286,23 +286,26 @@ struct SourceAppsDetailView: View {
 			.padding(.top, 8)
 		}
 		.navigationBarTitleDisplayMode(.inline)
+		.modifier(SoftTopEdge())
 		.toolbar {
-			// Scrolled: small icon + compact install pill together in the center (own item, apart
-			// from the share button), App Store-style. No size line in the toolbar.
 			ToolbarItem(placement: .principal) {
 				if _isHeaderHidden {
-					HStack(spacing: 10) {
-						LazyImage(url: app.iconURL) { state in
-							if let image = state.image {
-								image.appIconStyle(size: 28, isCircle: false)
-							} else {
-								Image("App_Unknown").appIconStyle(size: 28, isCircle: false)
-							}
+					LazyImage(url: app.iconURL) { state in
+						if let image = state.image {
+							image.appIconStyle(size: 30, isCircle: false)
+						} else {
+							Image("App_Unknown").appIconStyle(size: 30, isCircle: false)
 						}
-						DownloadButtonView(sourceURL: sourceURL, source: source, app: app, compact: true)
 					}
-					.frame(maxHeight: .infinity, alignment: .center)
 					.transition(.opacity)
+				}
+			}
+			// Compact pill only (no size line), so it sits centered in the bar capsule beside share.
+			ToolbarItem(placement: .topBarTrailing) {
+				if _isHeaderHidden {
+					DownloadButtonView(sourceURL: sourceURL, source: source, app: app, compact: true)
+						.frame(maxHeight: .infinity, alignment: .center)
+						.transition(.opacity)
 				}
 			}
 			NBToolbarButton(

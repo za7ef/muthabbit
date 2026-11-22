@@ -211,7 +211,7 @@ struct StoreHomeView: View {
 			.navigationTitle(L("المتجر"))
 			.batchTranslate(_autoTranslate ? _textsToTranslate : [])
 			.navigationBarTitleDisplayMode(.large)
-			.modifier(_SoftTopEdge())
+			.modifier(SoftTopEdge())
 			.searchable(text: $_searchText, prompt: L("ابحث في التطبيقات"))
 			.overlay {
 				if _sources.isEmpty {
@@ -886,7 +886,7 @@ struct StoreCategory: Identifiable, Equatable {
 /// iOS 26-style top edge for the store: no opaque bar band; content fades and blurs
 /// progressively under the title. iOS 26 uses the system soft scroll edge effect; older
 /// versions get a material layer masked with a gradient.
-private struct _SoftTopEdge: ViewModifier {
+struct SoftTopEdge: ViewModifier {
 	func body(content: Content) -> some View {
 		if #available(iOS 26.0, *) {
 			content
