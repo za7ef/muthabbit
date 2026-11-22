@@ -401,7 +401,7 @@ struct MyProjectsView: View {
 							} label: {
 								FRIconCellView(
 									title: app.currentName,
-									subtitle: (app.currentVersion ?? "") + ((app.currentAppVersion?.isBeta ?? false) ? " · " + L("تجريبي") : ""),
+									subtitle: (app.currentVersion ?? "") + (app.isCurrentPrerelease ? " · " + L("تجريبي") : ""),
 									iconUrl: app.iconURL
 								)
 							}

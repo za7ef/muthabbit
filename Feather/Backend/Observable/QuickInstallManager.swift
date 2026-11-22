@@ -277,6 +277,8 @@ final class QuickInstallManager: ObservableObject {
 	/// Per download job: Imported uuids that existed before it started, and the expected version.
 	private var _jobBefore: [String: Set<String>] = [:]
 	private var _jobExpected: [String: String] = [:]
+	/// downloadID → bundle id the source lists for this app.
+	private var _jobExpectedID: [String: String] = [:]
 	/// Fallback download (ryP0 "backup.downloadURL") used once if the main download fails.
 	private var _backup: [String: (URL, SourceAppProvenance?)] = [:]
 	
@@ -360,6 +362,7 @@ final class QuickInstallManager: ObservableObject {
 		if let v = provenance?.sourceAppVersion {
 			_jobExpected[downloadID] = v.components(separatedBy: " (").first
 		}
+		if let id = provenance?.sourceAppIdentifier { _jobExpectedID[downloadID] = id }
 		downloadIDs[key] = downloadID
 		states[key] = .downloading
 		_ = DownloadManager.shared.startDownload(
@@ -432,6 +435,7 @@ final class QuickInstallManager: ObservableObject {
 			}
 			_jobBefore[downloadID] = nil
 			_jobExpected[downloadID] = nil
+			_jobExpectedID[downloadID] = nil
 			_fail(pending.key, error)
 			return
 		}
@@ -439,6 +443,7 @@ final class QuickInstallManager: ObservableObject {
 		
 		let before = _jobBefore.removeValue(forKey: downloadID) ?? []
 		let expected = _jobExpected.removeValue(forKey: downloadID)
+		let expectedID = _jobExpectedID.removeValue(forKey: downloadID)
 		// Use exactly the file this job just imported, never an older copy.
 		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
 		req.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
@@ -447,9 +452,24 @@ final class QuickInstallManager: ObservableObject {
 			_fail(pending.key, L("تعذّر العثور على الملف بعد التنزيل."))
 			return
 		}
-		if let expected, let got = imported.version, got.compare(expected, options: .numeric) != .orderedSame {
-			_fail(pending.key, L("الملف المنزّل بإصدار %@ بدل %@.", "\(got)", "\(expected)"))
+		// Version text differs a lot between sources and IPAs ("v2.3.4" vs "2.3.4",
+		// "1.0b15-release" vs "1.0"): a version difference alone never blocks the install.
+		// Only a clearly different file blocks it: another bundle id AND another version.
+		let versionMatches: Bool = {
+			guard let expected, let got = imported.version else { return true }
+			return VersionMatch.sameRelease(got, expected)
+		}()
+		let idMatches: Bool = {
+			guard let expectedID, let got = imported.identifier else { return true }
+			return got.caseInsensitiveCompare(expectedID) == .orderedSame
+				|| got.hasPrefix(expectedID + ".") || expectedID.hasPrefix(got + ".")
+		}()
+		if !idMatches && !versionMatches {
+			_fail(pending.key, L("الملف المنزّل لتطبيق آخر (%@) وليس لهذا التطبيق.", imported.identifier ?? ""))
 			return
+		}
+		if !versionMatches || !idMatches {
+			print("[Muthabbit] downloaded IPA differs from source: id \(imported.identifier ?? "-") / \(expectedID ?? "-"), version \(imported.version ?? "-") / \(expected ?? "-")")
 		}
 		// Purge older imported and signed copies of the same app before signing.
 		if let id = imported.identifier {

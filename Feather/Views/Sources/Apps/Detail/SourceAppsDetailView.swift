@@ -111,7 +111,7 @@ struct SourceAppsDetailView: View {
 						
 						HStack(spacing: 8) {
 							DownloadButtonView(sourceURL: sourceURL, source: source, app: app)
-							if app.currentAppVersion?.isBeta == true {
+							if app.isCurrentPrerelease {
 								Text(L("تجريبي"))
 									.font(.caption.bold())
 									.foregroundStyle(.orange)

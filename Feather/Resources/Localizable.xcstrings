@@ -29728,6 +29728,59 @@
           }
         }
       }
+    },
+    "الملف المنزّل لتطبيق آخر (%@) وليس لهذا التطبيق.": {
+      "extractionState": "manual",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "الملف المنزّل لتطبيق آخر (%@) وليس لهذا التطبيق."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded file belongs to another app (%@), not this one."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le fichier téléchargé appartient à une autre app (%@), pas à celle-ci."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El archivo descargado pertenece a otra app (%@), no a esta."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загруженный файл относится к другому приложению (%@), а не к этому."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下载的文件属于另一个应用（%@），而不是此应用。"
+          }
+        },
+        "ur": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ڈاؤن لوڈ کی گئی فائل کسی اور ایپ (%@) کی ہے، اس ایپ کی نہیں۔"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İndirilen dosya bu uygulamaya değil, başka bir uygulamaya (%@) ait."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

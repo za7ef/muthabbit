@@ -384,6 +384,13 @@ extension ASRepository {
 			versions?.first(where: { !$0.isBeta }) ?? versions?.first
 		}
 		
+		/// True when the version the main button installs is a pre-release
+		/// (the app has no stable version at all).
+		public var isCurrentPrerelease: Bool {
+			if let v = currentAppVersion { return v.isBeta }
+			return Version.looksPrerelease(version ?? "")
+		}
+		
 		/// The very latest version, stable or beta.
 		public var latestAnyVersion: Version? {
 			versions?.first
@@ -437,8 +444,14 @@ extension ASRepository {
 			/// Explicit flag wins; otherwise inferred from the version/build strings.
 			public var isBeta: Bool {
 				if let prereleaseFlag { return prereleaseFlag }
-				let text = (version + " " + (build ?? "")).lowercased()
-				let pattern = #"(beta|alpha|\brc\d*\b|\bpre|\bdev\b|\btest|build-\d+)"#
+				return Self.looksPrerelease(version + " " + (build ?? ""))
+			}
+			
+			/// Pre-release words in a version text: alpha, beta, b15 (after a digit), rc, pre/preview,
+			/// dev, nightly, canary, experimental, test, build-NN.
+			public static func looksPrerelease(_ value: String) -> Bool {
+				let text = value.lowercased()
+				let pattern = #"(beta|alpha|(?<=\d)[ab]\d+|\brc\d*\b|(?<=\d)rc\d*|\bpre|\bdev\b|nightly|canary|experimental|\btest|build-\d+)"#
 				return text.range(of: pattern, options: .regularExpression) != nil
 			}
 

@@ -101,9 +101,23 @@ struct DownloadButtonView: View {
 			let bytes = app.size ?? app.currentAppVersion?.size.map(Int64.init) ?? app.backupSize,
 			bytes > 0
 		{
-			Text(L("%@ م.ب", _mb(bytes)))
-				.font(.caption2)
-				.foregroundStyle(.tertiary)
+			// Pre-release only app: the button installs a test build; say so under it.
+			if app.isCurrentPrerelease {
+				(Text(L("تجريبي")).foregroundColor(.orange).bold() + Text(" · " + L("%@ م.ب", _mb(bytes))))
+					.font(.caption2)
+					.foregroundStyle(.tertiary)
+			} else {
+				Text(L("%@ م.ب", _mb(bytes)))
+					.font(.caption2)
+					.foregroundStyle(.tertiary)
+			}
+		} else if
+			!(app.id.map { quickInstall.installedIDs.contains($0) } ?? false),
+			app.isCurrentPrerelease
+		{
+			Text(L("تجريبي"))
+				.font(.caption2.bold())
+				.foregroundStyle(.orange)
 		}
 	}
 	

@@ -201,6 +201,13 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
+				// Pre-release builds never trigger «تحديث». Only exception: an app with no stable
+				// version at all, already installed as a pre-release (moving to a newer test build).
+				if remoteApp.isCurrentPrerelease {
+					let installedIsPrerelease = ASRepository.App.Version.looksPrerelease(effectiveVersion ?? "")
+					guard installedIsPrerelease else { continue }
+				}
+				
 				guard let downloadURL = remoteApp.currentDownloadUrl else {
 					continue
 				}
@@ -237,7 +244,14 @@ final class UpdateManager: ObservableObject {
 		// Stored value without a build number (e.g. taken from the IPA itself):
 		// compare marketing versions only, to avoid false update notices.
 		if !stored.contains(" (") {
-			return SourceAppProvenance.baseVersion(remote) == stored
+			let base = SourceAppProvenance.baseVersion(remote)
+			if base == stored { return true }
+			// Plain number from the IPA (e.g. "2.3.4", "1.0") against source text such as
+			// "v2.3.4" or "1.0b15-release": same release → no false update notice.
+			// Stays strict when both sides carry suffixes ("1.0b15" vs "1.0b16" is an update).
+			if VersionMatch.isPlain(stored) || VersionMatch.isPlain(base) {
+				return VersionMatch.sameRelease(base, stored)
+			}
 		}
 		return false
 	}
