@@ -133,6 +133,26 @@ final class QuickInstallManager: ObservableObject {
 		return fn(ws, sel, bundleID as NSString)
 	}
 	
+	/// Installed state and version ("<CFBundleVersion>|<CFBundleShortVersionString>") from iOS
+	/// (LSApplicationProxy). Version is nil when iOS does not expose it.
+	nonisolated static func installedVersion(_ bundleID: String) -> (installed: Bool, version: String?) {
+		let installed = isAppInstalledOnDevice(bundleID)
+		guard
+			installed,
+			let cls = NSClassFromString("LSApplicationProxy") as? NSObject.Type,
+			cls.responds(to: NSSelectorFromString("applicationProxyForIdentifier:")),
+			let proxy = cls.perform(NSSelectorFromString("applicationProxyForIdentifier:"), with: bundleID)?
+				.takeUnretainedValue() as? NSObject
+		else { return (installed, nil) }
+		func read(_ key: String) -> String? {
+			guard proxy.responds(to: NSSelectorFromString(key)) else { return nil }
+			return proxy.value(forKey: key) as? String
+		}
+		let build = read("bundleVersion"), short = read("shortVersionString")
+		if build == nil && short == nil { return (true, nil) }
+		return (true, "\(build ?? "")|\(short ?? "")")
+	}
+	
 	/// Matches the history with what iOS reports as installed:
 	/// - adds stored signed apps that are installed but have no record;
 	/// - fills missing name/version from the newest signed copy;
@@ -232,6 +252,7 @@ final class QuickInstallManager: ObservableObject {
 	/// Back to the normal button, no alert (user canceled; nothing failed).
 	private func _resetQuietly(_ key: String) {
 		states[key] = nil
+		_before[key] = nil
 		installProgress[key] = nil
 		_fallbackTried.remove(key)
 		_attemptSigned[key] = nil
@@ -273,6 +294,8 @@ final class QuickInstallManager: ObservableObject {
 	private var _installingKey: String?
 	private var _bundleIDs: [String: String] = [:]
 	private var _watchdog: Task<Void, Never>?
+	/// key → (was installed, its build/version) just before the install started.
+	private var _before: [String: (installed: Bool, version: String?)] = [:]
 	private var _promptObserver: NSObjectProtocol?
 	private var _fallbackTried: Set<String> = []
 	private var _queue: [(app: AppInfoPresentable, key: String)] = []
@@ -511,7 +534,10 @@ final class QuickInstallManager: ObservableObject {
 		}
 		states[key] = .installing
 		_installingKey = key
-		if let id = app.identifier { _bundleIDs[key] = id }
+		if let id = app.identifier {
+			_bundleIDs[key] = id
+			_before[key] = Self.installedVersion(id)
+		}
 		
 		let isIdevice = !isSelf && UserDefaults.standard.integer(forKey: "Feather.installationMethod") == 1
 		let viewModel = InstallerStatusViewModel(isIdevice: isIdevice)
@@ -587,9 +613,12 @@ final class QuickInstallManager: ObservableObject {
 								self._resetQuietly(key)
 							}
 						}
-					case .sendingPayload, .sendingManifest:
+					case .sendingManifest:
 						self._watchdog?.cancel()
-					case .installing:
+					case .sendingPayload, .installing:
+						// Start watching as soon as iOS asks for the IPA: small apps can finish
+						// installing before the "file sent" callback, and that callback may not come.
+						self._watchdog?.cancel()
 						if self._progressTask == nil, !bundleID.isEmpty {
 							self._progressTask = self._pollInstall(bundleID: bundleID, key: key, viewModel: viewModel)
 						}
@@ -648,6 +677,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _finish(_ key: String) {
 		states[key] = nil
+		_before[key] = nil
 		installProgress[key] = nil
 		justFinished.insert(key)
 		Task { @MainActor [weak self] in
@@ -679,6 +709,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	private func _fail(_ key: String, _ message: String) {
 		states[key] = .failed(message)
+		_before[key] = nil
 		installProgress[key] = nil
 		_fallbackTried.remove(key)
 		// No install record for a failed/canceled install; the signed copy stays in «الموقّعة».
@@ -721,10 +752,24 @@ final class QuickInstallManager: ObservableObject {
 		}
 	}
 	
+	/// Watches iOS while it installs. Done when:
+	/// - iOS progress was seen and drops back to 0, or
+	/// - the app turns up installed / its version changes compared with before the install
+	///   (fast installs can finish before any progress is seen).
+	/// Never leaves the button stuck: after a quiet timeout it re-checks and shows «فتح» when the
+	/// app is installed, or resets to «تثبيت» when it is not.
 	private func _pollInstall(bundleID: String, key: String, viewModel: InstallerStatusViewModel) -> Task<Void, Never> {
-		Task.detached(priority: .background) {
+		let before = _before[key] ?? (false, nil)
+		return Task.detached(priority: .background) {
 			var hasStarted = false
 			let begin = Date()
+			func changed() -> Bool {
+				let now = QuickInstallManager.installedVersion(bundleID)
+				guard now.installed else { return false }
+				if !before.installed { return true }
+				if let a = before.version, let b = now.version { return a != b }
+				return false
+			}
 			while !Task.isCancelled {
 				let raw = await UIApplication.installProgress(for: bundleID) ?? 0.0
 				if raw > 0 {
@@ -732,25 +777,28 @@ final class QuickInstallManager: ObservableObject {
 					await MainActor.run {
 						let value = 0.3 + 0.7 * min(raw, 1)
 						let current = QuickInstallManager.shared.installProgress[key] ?? 0
-						// Never moves backwards.
 						QuickInstallManager.shared.installProgress[key] = max(current, value)
 					}
+				} else if hasStarted || changed() {
+					await MainActor.run { viewModel.status = .completed(.success(())) }
+					return
 				}
-				// Never poll forever: iOS did not start (2 min) or did not finish (10 min).
 				let elapsed = Date().timeIntervalSince(begin)
-				if (!hasStarted && elapsed > 120) || elapsed > 600 {
+				// No progress seen for 30 s, or still going after 10 min: decide from the device.
+				if (!hasStarted && elapsed > 30) || elapsed > 600 {
+					let installed = QuickInstallManager.isAppInstalledOnDevice(bundleID)
 					await MainActor.run {
-						viewModel.status = .broken(NSError(domain: "Muthabbit", code: 1, userInfo: [NSLocalizedDescriptionKey: L("لم يكتمل التثبيت. يمكن المحاولة مجددًا.")]))
+						let manager = QuickInstallManager.shared
+						guard manager._installingKey == key else { return }
+						if installed {
+							viewModel.status = .completed(.success(()))
+						} else {
+							manager._resetQuietly(key)
+						}
 					}
-					break
+					return
 				}
-				if hasStarted && raw == 0 {
-					await MainActor.run {
-						viewModel.status = .completed(.success(()))
-					}
-					break
-				}
-				try? await Task.sleep(nanoseconds: 200_000_000)
+				try? await Task.sleep(nanoseconds: 300_000_000)
 			}
 		}
 	}
