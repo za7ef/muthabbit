@@ -13,6 +13,7 @@ import SwiftUI
 import NimbleViews
 import NimbleExtensions
 import UIKit
+import CoreData
 
 // MARK: - Icon helper
 struct SettingsIcon: View {
@@ -157,7 +158,11 @@ struct SettingsView: View {
 					}
 					DisclosureGroup(L("تفاصيل المساحة")) {
 						_sizeRow(L("التطبيقات الموقّعة"), _breakdown.signed)
-						_sizeRow(L("التطبيقات غير الموقّعة"), _breakdown.unsigned)
+						NavigationLink {
+							UnsignedCopiesView { Task { await _refreshStorage() } }
+						} label: {
+							_sizeRow(L("التطبيقات غير الموقّعة"), _breakdown.unsigned)
+						}
 						_sizeRow(L("الأرشيف (ملفات IPA المصدّرة)"), _breakdown.archives)
 						_sizeRow(L("الشهادات"), _breakdown.certificates)
 						_sizeRow(L("الكاش"), _breakdown.cache)
@@ -297,5 +302,52 @@ struct LanguageSettingsView: View {
 		} message: {
 			Text(L("تُطبَّق اللغة الجديدة بعد إعادة فتح التطبيق."))
 		}
+	}
+}
+
+
+// MARK: - Unsigned copies (storage details)
+/// Each unsigned copy with its size; swipe to delete. Copies from a source keep their record
+/// (downloaded again when needed); copies imported from Files are removed entirely.
+struct UnsignedCopiesView: View {
+	var onChange: () -> Void
+	private struct Item: Identifiable {
+		let app: Imported
+		let size: Int64
+		var id: NSManagedObjectID { app.objectID }
+	}
+	@State private var _items: [Item] = []
+	
+	var body: some View {
+		List {
+			if _items.isEmpty {
+				Text(L("لا توجد نسخ غير موقّعة.")).foregroundStyle(.secondary)
+			}
+			ForEach(_items) { item in
+				LabeledContent {
+					Text(ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file))
+				} label: {
+					VStack(alignment: .leading, spacing: 2) {
+						Text(item.app.name ?? item.app.identifier ?? "-")
+						Text("\(item.app.version ?? "") · " + (StorageCleaner.isRedownloadable(item.app)
+							? L("من مصدر، يمكن تنزيله مجددًا")
+							: L("مستورد من «الملفات»، يُحذف نهائيًا")))
+							.font(.caption)
+							.foregroundStyle(.secondary)
+					}
+				}
+			}
+			.onDelete { offsets in
+				offsets.map { _items[$0].app }.forEach { StorageCleaner.deleteUnsignedCopy($0) }
+				_reload()
+				onChange()
+			}
+		}
+		.navigationTitle(L("التطبيقات غير الموقّعة"))
+		.onAppear(perform: _reload)
+	}
+	
+	private func _reload() {
+		_items = StorageCleaner.unsignedCopies().map { Item(app: $0.app, size: $0.size) }
 	}
 }

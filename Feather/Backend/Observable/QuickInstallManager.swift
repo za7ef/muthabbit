@@ -16,6 +16,7 @@ import Combine
 import CoreData
 import SafariServices
 import IDeviceSwift
+import AltSourceKit
 
 enum QuickInstallState: Equatable {
 	case downloading
@@ -1105,27 +1106,54 @@ enum StorageCleaner {
 		return freed
 	}
 	
-	/// Deletes the files (not the record) of unsigned imports that are no longer needed: the app was
-	/// downloaded from a source (so it can be downloaded again) and is installed / listed in «تطبيقاتي».
-	/// Apps imported by the user from Files (no source info) are always kept. Folders newer than
-	/// `minimumAge` seconds are skipped.
+	/// True when this import can be downloaded again: it came from a source (source info or source
+	/// URL saved with it), or its bundle id is listed in one of the added sources.
+	/// Apps imported by the user from Files match none of these and are always kept.
+	@MainActor
+	static func isRedownloadable(_ app: Imported) -> Bool {
+		if let uuid = app.uuid, Storage.shared.sourceMetadata(for: uuid) != nil { return true }
+		if app.source != nil { return true }
+		guard let id = app.identifier else { return false }
+		return SourcesViewModel.shared.sources.values.contains { repo in
+			repo.apps.contains { $0.id == id }
+		}
+	}
+	
+	/// Unsigned copies that still have files on disk, newest first, with their size.
+	@MainActor
+	static func unsignedCopies() -> [(app: Imported, size: Int64)] {
+		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
+		req.sortDescriptors = [NSSortDescriptor(keyPath: \Imported.date, ascending: false)]
+		return ((try? Storage.shared.context.fetch(req)) ?? []).compactMap { app in
+			guard let uuid = app.uuid else { return nil }
+			let dir = _fm.unsigned(uuid)
+			guard _fm.fileExists(atPath: dir.path) else { return nil }
+			return (app, _size(of: dir))
+		}
+	}
+	
+	/// Deletes the files of one unsigned copy. A re-downloadable copy keeps its record and source info;
+	/// a copy imported from Files cannot be used without its files, so its record goes too.
+	@MainActor
+	static func deleteUnsignedCopy(_ app: Imported) {
+		if isRedownloadable(app) {
+			if let uuid = app.uuid { try? _fm.removeItem(at: _fm.unsigned(uuid)) }
+		} else {
+			Storage.shared.deleteApp(for: app)
+		}
+	}
+	
+	/// Deletes the files (not the record) of every re-downloadable unsigned copy older than
+	/// `minimumAge` seconds. Copies imported from Files are kept.
 	@MainActor
 	@discardableResult
 	static func deleteRedownloadableImports(minimumAge: TimeInterval) -> Int64 {
-		let installed = QuickInstallManager.shared.installedIDs
-		let imported = (try? Storage.shared.context.fetch(Imported.fetchRequest() as NSFetchRequest<Imported>)) ?? []
 		var freed: Int64 = 0
-		for app in imported {
-			guard
-				let uuid = app.uuid, let id = app.identifier,
-				Storage.shared.sourceMetadata(for: uuid) != nil,
-				installed.contains(id) || QuickInstallManager.isAppInstalledOnDevice(id)
-			else { continue }
+		for (app, size) in unsignedCopies() where isRedownloadable(app) {
+			guard let uuid = app.uuid else { continue }
 			let dir = _fm.unsigned(uuid)
-			guard _fm.fileExists(atPath: dir.path) else { continue }
 			let date = (try? dir.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
 			guard Date().timeIntervalSince(date) >= minimumAge else { continue }
-			let size = _size(of: dir)
 			if (try? _fm.removeItem(at: dir)) != nil { freed += size }
 		}
 		return freed
