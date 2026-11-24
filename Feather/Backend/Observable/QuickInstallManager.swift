@@ -1075,6 +1075,9 @@ enum StorageCleaner {
 		}
 		UserDefaults.standard.set(build, forKey: _lastOwnBuildKey)
 		sweepOrphans(minimumAge: 120)
+		if UserDefaults.standard.bool(forKey: QuickInstallManager.deleteFilesKey) {
+			deleteRedownloadableImports(minimumAge: 600)
+		}
 		Task.detached(priority: .background) { cleanTemporaryFiles() }
 	}
 	
@@ -1102,15 +1105,45 @@ enum StorageCleaner {
 		return freed
 	}
 	
-	/// «تنظيف الملفات غير المستخدمة»: orphan folders, exported IPAs (Archives) and temporary files.
+	/// Deletes the files (not the record) of unsigned imports that are no longer needed: the app was
+	/// downloaded from a source (so it can be downloaded again) and is installed / listed in «تطبيقاتي».
+	/// Apps imported by the user from Files (no source info) are always kept. Folders newer than
+	/// `minimumAge` seconds are skipped.
 	@MainActor
-	static func cleanUnusedFiles() {
-		guard !QuickInstallManager.shared.isBusy else { return }
+	@discardableResult
+	static func deleteRedownloadableImports(minimumAge: TimeInterval) -> Int64 {
+		let installed = QuickInstallManager.shared.installedIDs
+		let imported = (try? Storage.shared.context.fetch(Imported.fetchRequest() as NSFetchRequest<Imported>)) ?? []
+		var freed: Int64 = 0
+		for app in imported {
+			guard
+				let uuid = app.uuid, let id = app.identifier,
+				Storage.shared.sourceMetadata(for: uuid) != nil,
+				installed.contains(id) || QuickInstallManager.isAppInstalledOnDevice(id)
+			else { continue }
+			let dir = _fm.unsigned(uuid)
+			guard _fm.fileExists(atPath: dir.path) else { continue }
+			let date = (try? dir.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+			guard Date().timeIntervalSince(date) >= minimumAge else { continue }
+			let size = _size(of: dir)
+			if (try? _fm.removeItem(at: dir)) != nil { freed += size }
+		}
+		return freed
+	}
+	
+	/// «تنظيف الملفات غير المستخدمة»: orphan folders, unsigned copies of installed source apps,
+	/// exported IPAs (Archives), temporary files and the cache. Returns the bytes freed (nil while busy).
+	@MainActor
+	static func cleanUnusedFiles() -> Int64? {
+		guard !QuickInstallManager.shared.isBusy else { return nil }
+		let before = usedBytes()
 		sweepOrphans(minimumAge: 600)
+		deleteRedownloadableImports(minimumAge: 600)
 		if let items = try? _fm.contentsOfDirectory(at: _fm.archives, includingPropertiesForKeys: nil) {
 			items.forEach { try? _fm.removeItem(at: $0) }
 		}
-		cleanTemporaryFiles()
+		clearCache()
+		return max(0, before - usedBytes())
 	}
 	
 	struct Breakdown: Sendable {

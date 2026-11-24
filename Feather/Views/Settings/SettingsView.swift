@@ -165,8 +165,14 @@ struct SettingsView: View {
 					}
 					Button {
 						Task { @MainActor in
-							StorageCleaner.cleanUnusedFiles()
+							let freed = StorageCleaner.cleanUnusedFiles()
 							await _refreshStorage()
+							UIAlertController.showAlertWithOk(
+								title: L("تنظيف الملفات غير المستخدمة"),
+								message: freed.map {
+									L("تم تحرير %@.", ByteCountFormatter.string(fromByteCount: $0, countStyle: .file))
+								} ?? L("يوجد تثبيت أو تنزيل جارٍ. أعد المحاولة بعد انتهائه.")
+							)
 						}
 					} label: {
 						SettingsRow(title: L("تنظيف الملفات غير المستخدمة"), systemName: "sparkles", color: .teal)
