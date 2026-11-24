@@ -12,8 +12,8 @@ import UIKit
 
 enum AppInfo {
 	static let displayName = "وسم"
-	static let repository = "za7ef/muthabbit"
-	static let repositoryURL = URL(string: "https://github.com/za7ef/muthabbit")!
+	static let repository = "za7ef/wasm"
+	static let repositoryURL = URL(string: "https://github.com/za7ef/wasm")!
 	static let developerURL = URL(string: "https://github.com/za7ef")!
 	static let defaultSourceURL = "https://raw.githubusercontent.com/za7ef/apps-source/main/source.json"
 	
