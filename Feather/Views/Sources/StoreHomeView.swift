@@ -111,10 +111,12 @@ struct StoreHomeView: View {
 			list = list.filter { StoreCategory.key(for: $0.app.category) == selected }
 		}
 		guard !_searchText.isEmpty else { return list }
-		return list.filter {
-			$0.app.currentName.localizedCaseInsensitiveContains(_searchText)
-			|| ($0.app.subtitle?.localizedCaseInsensitiveContains(_searchText) ?? false)
-			|| ($0.app.id?.localizedCaseInsensitiveContains(_searchText) ?? false)
+		return SearchMatch.rank(list, query: _searchText) { query, entry in
+			SearchMatch.score(
+				query,
+				name: entry.app.currentName,
+				fields: [entry.app.id, entry.app.developer, entry.app.subtitle]
+			)
 		}
 	}
 	

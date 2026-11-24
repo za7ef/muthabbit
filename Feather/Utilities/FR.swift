@@ -186,6 +186,24 @@ enum FR {
 	}
 	
 	static func exportCertificateAndOpenUrl(using template: String) {
+		// Only another app may receive the certificate (custom URL scheme such as livecontainer://).
+		// Web links (http/https) or other non-app schemes are refused: a link from a web page or a
+		// source description must never be able to send the certificate and its password to a server.
+		let blockedSchemes: Set<String> = ["http", "https", "ftp", "file", "data", "javascript", "mailto", "sms", "tel", "feather", "muthabbit"]
+		guard
+			let templateScheme = template.split(separator: ":", maxSplits: 1).first.map({ String($0).lowercased() }),
+			!templateScheme.isEmpty,
+			templateScheme.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "+" || $0 == "-" || $0 == "." }),
+			!blockedSchemes.contains(templateScheme),
+			template.contains("://")
+		else {
+			UIAlertController.showAlertWithOk(
+				title: .localized("Export Certificate"),
+				message: L("تم رفض طلب تصدير الشهادة لأن الوجهة ليست تطبيقًا.")
+			)
+			return
+		}
+
 		// Helper that performs the export for a given certificate
 		func performExport(for certificate: CertificatePair) {
 			guard
@@ -239,7 +257,7 @@ enum FR {
 			
 			UIAlertController.showAlertWithCancel(
 				title: .localized("Export Certificate"),
-				message: .localized("Do you want to export your certificate to an external app? That app will be able to sign apps using your certificate."),
+				message: String.localized("Do you want to export your certificate to an external app? That app will be able to sign apps using your certificate.") + "\n\n" + L("الوجهة: %@", "\(templateScheme)://"),
 				style: .alert,
 				actions: selectionActions
 			)

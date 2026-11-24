@@ -259,6 +259,7 @@ final class QuickInstallManager: ObservableObject {
 	
 	/// Back to the normal button, no alert (user canceled; nothing failed).
 	private func _resetQuietly(_ key: String) {
+		_cancelSelfExit()
 		states[key] = nil
 		_before[key] = nil
 		installProgress[key] = nil
@@ -304,6 +305,8 @@ final class QuickInstallManager: ObservableObject {
 	private var _installingKey: String?
 	private var _bundleIDs: [String: String] = [:]
 	private var _watchdog: Task<Void, Never>?
+	/// Self-update only: closes Muthabbit once iOS has the whole new IPA (see `_closeAfterSelfUpdate`).
+	private var _selfExitTask: Task<Void, Never>?
 	/// key → (was installed, its build/version) just before the install started.
 	private var _before: [String: (installed: Bool, version: String?)] = [:]
 	private var _promptObserver: NSObjectProtocol?
@@ -653,6 +656,10 @@ final class QuickInstallManager: ObservableObject {
 						// Start watching as soon as iOS asks for the IPA: small apps can finish
 						// installing before the "file sent" callback, and that callback may not come.
 						self._watchdog?.cancel()
+						// Self-update: close only once the whole IPA has been sent («تثبيت» confirmed).
+						if isSelf, case .installing = status {
+							self._closeAfterSelfUpdate()
+						}
 						if self._progressTask == nil, !bundleID.isEmpty {
 							self._progressTask = self._pollInstall(bundleID: bundleID, key: key, viewModel: viewModel)
 						}
@@ -694,6 +701,28 @@ final class QuickInstallManager: ObservableObject {
 		#if !targetEnvironment(macCatalyst)
 		BackgroundAudioManager.shared.start()
 		#endif
+	}
+	
+	/// Self-update: iOS does not tell an app which button was tapped on its install prompt, but it
+	/// only requests the IPA after «تثبيت» («إلغاء» never reaches the server). Called when the local
+	/// server reports that the whole IPA has been sent (`.installing`): Muthabbit saves its data
+	/// synchronously and closes itself so iOS can replace it. Only for Muthabbit's own bundle id.
+	private func _closeAfterSelfUpdate() {
+		guard _selfExitTask == nil else { return }
+		_selfExitTask = Task { @MainActor in
+			// Short pause so the last bytes leave the local server.
+			try? await Task.sleep(nanoseconds: 1_000_000_000)
+			guard !Task.isCancelled else { return }
+			let context = Storage.shared.context
+			if context.hasChanges { try? context.save() }
+			UserDefaults.standard.synchronize()
+			exit(0)
+		}
+	}
+	
+	private func _cancelSelfExit() {
+		_selfExitTask?.cancel()
+		_selfExitTask = nil
 	}
 	
 	/// Tries the other server method once (Semi Local ⇄ Local) before reporting failure.
@@ -742,6 +771,7 @@ final class QuickInstallManager: ObservableObject {
 	}
 	
 	private func _fail(_ key: String, _ message: String) {
+		_cancelSelfExit()
 		states[key] = .failed(message)
 		_before[key] = nil
 		installProgress[key] = nil

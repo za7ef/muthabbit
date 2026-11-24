@@ -12,10 +12,20 @@
 import Foundation
 
 enum VersionMatch {
-	/// Drops any text before the first digit: "v2.3.4" → "2.3.4", "andarium-1.1" → "1.1",
-	/// "release-2.0" → "2.0". Text without any digit is returned empty.
+	/// Drops a text prefix before the version number: "v2.3.4" → "2.3.4", "andarium-1.1" → "1.1",
+	/// "release_2.0" → "2.0". The prefix is either a single "v"/"V" or letters ending with "-",
+	/// "_" or a space; anything else (e.g. "ios15") is left unchanged.
 	static func stripPrefix(_ value: Substring) -> Substring {
-		value.drop(while: { !($0.isASCII && $0.isNumber) })
+		guard let first = value.first, !(first.isASCII && first.isNumber) else { return value }
+		if (first == "v" || first == "V"), let next = value.dropFirst().first, next.isASCII, next.isNumber {
+			return value.dropFirst()
+		}
+		let prefix = value.prefix(while: { $0.isLetter })
+		let rest = value.dropFirst(prefix.count)
+		guard !prefix.isEmpty, let sep = rest.first, sep == "-" || sep == "_" || sep == " " else { return value }
+		let tail = rest.dropFirst()
+		guard let digit = tail.first, digit.isASCII, digit.isNumber else { return value }
+		return tail
 	}
 	
 	/// Leading numeric components: trims, drops any text before the first digit and a " (build)"
@@ -48,12 +58,12 @@ enum VersionMatch {
 		return !ca.isEmpty && ca == cb
 	}
 	
-	/// The build part of "1.1 (16)" → "16"; nil when there is none.
-	static func build(_ value: String) -> String? {
+	/// The numeric build part of "1.1 (16)" → 16; nil when there is none or it is not a number
+	/// (e.g. "1.1 (Beta)").
+	static func build(_ value: String) -> Int? {
 		guard let open = value.range(of: " (") else { return nil }
 		var rest = value[open.upperBound...]
 		if rest.hasSuffix(")") { rest = rest.dropLast() }
-		let b = rest.trimmingCharacters(in: .whitespacesAndNewlines)
-		return b.isEmpty ? nil : b
+		return Int(rest.trimmingCharacters(in: .whitespacesAndNewlines))
 	}
 }

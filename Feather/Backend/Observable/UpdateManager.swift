@@ -242,7 +242,8 @@ final class UpdateManager: ObservableObject {
 	}
 	
 	/// Same version → no update notice. When the version numbers match and both sides have a
-	/// build number, the build decides: same build → no update, different build → update.
+	/// numeric build number, the build decides: an update only when the source's build is higher
+	/// (a same or older build is never offered).
 	/// The installed build comes from the stored record ("1.1 (16)") or, when it has none,
 	/// from iOS (`installedBuild`, read only when needed). Without a build on either side,
 	/// the version match alone decides.
@@ -255,8 +256,8 @@ final class UpdateManager: ObservableObject {
 		if remote == stored { return true }
 		guard _isSameMarketingVersion(remote: remote, stored: stored) else { return false }
 		guard let remoteBuild = VersionMatch.build(remote) else { return true }
-		guard let localBuild = VersionMatch.build(stored) ?? installedBuild() else { return true }
-		return remoteBuild == localBuild
+		guard let localBuild = VersionMatch.build(stored) ?? installedBuild().flatMap({ Int($0) }) else { return true }
+		return remoteBuild <= localBuild
 	}
 	
 	/// Marketing versions only (build numbers ignored).

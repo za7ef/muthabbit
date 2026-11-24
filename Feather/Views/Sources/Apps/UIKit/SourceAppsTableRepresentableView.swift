@@ -140,13 +140,13 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 	}
 	
 	private func _calculateSortedApps() -> [SourceAppEntry] {
-		let filtered = _allAppsWithSource.filter {
-			searchText.isEmpty ||
-			($0.app.id?.range(of: searchText, options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US")) != nil) ||
-				($0.app.name?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-				($0.app.description?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-				($0.app.subtitle?.localizedCaseInsensitiveContains(searchText) ?? false) ||
-				($0.app.localizedDescription?.localizedCaseInsensitiveContains(searchText) ?? false)
+		let filtered = SearchMatch.rank(_allAppsWithSource, query: searchText) { query, entry in
+			SearchMatch.score(
+				query,
+				name: entry.app.name,
+				fields: [entry.app.id, entry.app.developer, entry.app.subtitle],
+				longTexts: [entry.app.description, entry.app.localizedDescription]
+			)
 		}
 		
 		switch sortOption {
@@ -154,7 +154,8 @@ extension SourceAppsTableRepresentableView { class Coordinator: NSObject, UITabl
 			_groupedAppsByDate = [:]
 			_groupedAppsByNameFirstLetter = [:]
 			_sortedSectionTitles = []
-			return sortAscending ? filtered : filtered.reversed()
+			// While searching, keep the best matches first regardless of the sort direction.
+			return (sortAscending || !searchText.isEmpty) ? filtered : filtered.reversed()
 		case .date:
 			let sorted = filtered.sorted {
 				let d1 = $0.app.currentDate?.date ?? .distantPast
