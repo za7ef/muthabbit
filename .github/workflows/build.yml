@@ -72,7 +72,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: مُثبِّت ${{ env.VERSION }} (البناء ${{ env.BUILD }})
+          name: وسم ${{ env.VERSION }} (البناء ${{ env.BUILD }})
           body_path: RELEASE_NOTES.md
           files: packages/Muthabbit.ipa
           fail_on_unmatched_files: true
