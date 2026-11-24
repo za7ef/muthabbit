@@ -264,10 +264,26 @@ final class QuickInstallManager: ObservableObject {
 		_before[key] = nil
 		installProgress[key] = nil
 		_fallbackTried.remove(key)
-		_attemptSigned[key] = nil
+		_discardAttempt(key)
 		if _installingKey == key {
 			_teardownInstall()
 		}
+	}
+	
+	/// Failed/canceled attempt: with «حذف الملف بعد التثبيت» on, its signed copy is removed.
+	private func _discardAttempt(_ key: String) {
+		let uuid = _attemptSigned.removeValue(forKey: key)
+		guard UserDefaults.standard.bool(forKey: Self.deleteFilesKey) else { return }
+		if let uuid {
+			let req: NSFetchRequest<Signed> = Signed.fetchRequest()
+			req.predicate = NSPredicate(format: "uuid == %@", uuid)
+			((try? Storage.shared.context.fetch(req)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
+		}
+	}
+	
+	/// True while any download, signing or install is running (cleanup must not touch its files).
+	var isBusy: Bool {
+		_installingKey != nil || !_queue.isEmpty || states.values.contains { !$0.isFailed }
 	}
 	
 	func markInstalled(_ bundleID: String) {
@@ -347,6 +363,7 @@ final class QuickInstallManager: ObservableObject {
 	/// Must be called once at launch so the observers are registered.
 	func activate() {
 		// This app itself is not listed in "تطبيقاتي" (its own version is in «حول التطبيق»).
+		StorageCleaner.launchCleanup()
 		reconcileWithDevice()
 	}
 	
@@ -758,12 +775,7 @@ final class QuickInstallManager: ObservableObject {
 			_teardownInstall()
 		}
 		// Keep only what is needed: newest signed copy; remove old copies and temp work folders.
-		if UserDefaults.standard.object(forKey: Self.deleteOldKey) as? Bool ?? true {
-			StorageCleaner.pruneOldCopies(bundleID: _bundleIDs[key] ?? key)
-		}
-		if UserDefaults.standard.bool(forKey: Self.deleteFilesKey) {
-			StorageCleaner.deleteInstalledFiles(bundleID: _bundleIDs[key] ?? key)
-		}
+		StorageCleaner.afterSuccessfulInstall(bundleID: _bundleIDs[key] ?? key)
 		if _installingKey == nil {
 			Task.detached(priority: .background) { StorageCleaner.cleanTemporaryFiles() }
 		}
@@ -776,8 +788,9 @@ final class QuickInstallManager: ObservableObject {
 		_before[key] = nil
 		installProgress[key] = nil
 		_fallbackTried.remove(key)
-		// No install record for a failed/canceled install; the signed copy stays in «الموقّعة».
-		_attemptSigned[key] = nil
+		// No install record for a failed/canceled install. The copy signed by this attempt is
+		// removed only when the user asked not to keep files after installing (imports stay).
+		_discardAttempt(key)
 		Task.detached(priority: .background) { StorageCleaner.cleanTemporaryFiles() }
 		if _installingKey == key {
 			_teardownInstall()
@@ -1019,6 +1032,101 @@ enum StorageCleaner {
 				try? _fm.removeItem(at: dir)
 			}
 		}
+	}
+	
+	/// Single cleanup used by every successful install path (one-tap, update, progress screen, idevice).
+	@MainActor
+	static func afterSuccessfulInstall(bundleID: String) {
+		guard !bundleID.isEmpty else { return }
+		if UserDefaults.standard.object(forKey: QuickInstallManager.deleteOldKey) as? Bool ?? true {
+			pruneOldCopies(bundleID: bundleID)
+		}
+		if UserDefaults.standard.bool(forKey: QuickInstallManager.deleteFilesKey) {
+			deleteInstalledFiles(bundleID: bundleID)
+			deleteImported(bundleID: bundleID)
+		}
+	}
+	
+	/// Removes unsigned imports of this bundle id (files and records).
+	@MainActor
+	static func deleteImported(bundleID: String) {
+		guard !bundleID.isEmpty else { return }
+		let req: NSFetchRequest<Imported> = Imported.fetchRequest()
+		req.predicate = NSPredicate(format: "identifier == %@", bundleID)
+		((try? Storage.shared.context.fetch(req)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
+	}
+	
+	private static let _lastOwnBuildKey = "Muthabbit.lastLaunchedBuild"
+	
+	/// At launch (no install can be running yet): removes orphan folders and, after a
+	/// self-update, the copies of this app left behind because it closed before cleaning up.
+	@MainActor
+	static func launchCleanup() {
+		let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+		let last = UserDefaults.standard.string(forKey: _lastOwnBuildKey)
+		// No saved build yet (first launch of this version of the cleanup) counts as an update too.
+		if last != build {
+			let own = QuickInstallManager.ownBundleID
+			// The new version is already installed: none of the stored copies of this app is needed.
+			let s: NSFetchRequest<Signed> = Signed.fetchRequest()
+			s.predicate = NSPredicate(format: "identifier == %@", own)
+			((try? Storage.shared.context.fetch(s)) ?? []).forEach { Storage.shared.deleteApp(for: $0) }
+			deleteImported(bundleID: own)
+		}
+		UserDefaults.standard.set(build, forKey: _lastOwnBuildKey)
+		sweepOrphans(minimumAge: 120)
+		Task.detached(priority: .background) { cleanTemporaryFiles() }
+	}
+	
+	/// Deletes Signed/<uuid> and Unsigned/<uuid> folders that no library record points to.
+	/// Only those two folders are scanned: certificates, the pairing file and server files are
+	/// never touched. Folders newer than `minimumAge` seconds are skipped (an install may be writing them).
+	@MainActor
+	@discardableResult
+	static func sweepOrphans(minimumAge: TimeInterval) -> Int64 {
+		let ctx = Storage.shared.context
+		let signedIDs = Set(((try? ctx.fetch(Signed.fetchRequest() as NSFetchRequest<Signed>)) ?? []).compactMap(\.uuid))
+		let importedIDs = Set(((try? ctx.fetch(Imported.fetchRequest() as NSFetchRequest<Imported>)) ?? []).compactMap(\.uuid))
+		var freed: Int64 = 0
+		for (root, known) in [(_fm.signed, signedIDs), (_fm.unsigned, importedIDs)] {
+			guard let items = try? _fm.contentsOfDirectory(
+				at: root, includingPropertiesForKeys: [.contentModificationDateKey], options: []
+			) else { continue }
+			for item in items where !known.contains(item.lastPathComponent) {
+				let date = (try? item.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+				guard Date().timeIntervalSince(date) >= minimumAge else { continue }
+				let size = _size(of: item)
+				if (try? _fm.removeItem(at: item)) != nil { freed += size }
+			}
+		}
+		return freed
+	}
+	
+	/// «تنظيف الملفات غير المستخدمة»: orphan folders, exported IPAs (Archives) and temporary files.
+	@MainActor
+	static func cleanUnusedFiles() {
+		guard !QuickInstallManager.shared.isBusy else { return }
+		sweepOrphans(minimumAge: 600)
+		if let items = try? _fm.contentsOfDirectory(at: _fm.archives, includingPropertiesForKeys: nil) {
+			items.forEach { try? _fm.removeItem(at: $0) }
+		}
+		cleanTemporaryFiles()
+	}
+	
+	struct Breakdown: Sendable {
+		var signed: Int64 = 0, unsigned: Int64 = 0, archives: Int64 = 0
+		var certificates: Int64 = 0, cache: Int64 = 0, other: Int64 = 0
+	}
+	
+	static func breakdown() -> Breakdown {
+		var b = Breakdown()
+		b.signed = _size(of: _fm.signed)
+		b.unsigned = _size(of: _fm.unsigned)
+		b.archives = _size(of: _fm.archives)
+		b.certificates = _size(of: _fm.certificates)
+		b.cache = cacheBytes()
+		b.other = max(0, usedBytes() - b.signed - b.unsigned - b.archives - b.certificates - b.cache)
+		return b
 	}
 	
 	static func usedBytes() -> Int64 {

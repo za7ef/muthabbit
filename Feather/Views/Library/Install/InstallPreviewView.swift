@@ -57,6 +57,9 @@ struct InstallPreviewView: View {
 			SafariRepresentableView(url: installer.pageEndpoint).ignoresSafeArea()
 		}
 		.onReceive(viewModel.$status) { newStatus in
+			if case .completed(.success(_)) = newStatus, !isSharing, let id = app.identifier {
+				StorageCleaner.afterSuccessfulInstall(bundleID: id)
+			}
 			if _installationMethod == 0 {
 				if case .ready = newStatus {
 					if _serverMethod == 0 {

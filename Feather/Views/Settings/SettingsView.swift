@@ -51,6 +51,7 @@ struct SettingsView: View {
 	@AppStorage(QuickInstallManager.deleteFilesKey) private var _deleteFiles = false
 	@State private var _usedBytes: Int64 = 0
 	@State private var _cacheBytes: Int64 = 0
+	@State private var _breakdown = StorageCleaner.Breakdown()
 	
 	// MARK: Fetch
 	@FetchRequest(
@@ -154,6 +155,22 @@ struct SettingsView: View {
 					} label: {
 						SettingsRow(title: L("المساحة المستخدمة"), systemName: "internaldrive.fill", color: .gray)
 					}
+					DisclosureGroup(L("تفاصيل المساحة")) {
+						_sizeRow(L("التطبيقات الموقّعة"), _breakdown.signed)
+						_sizeRow(L("التطبيقات غير الموقّعة"), _breakdown.unsigned)
+						_sizeRow(L("الأرشيف (ملفات IPA المصدّرة)"), _breakdown.archives)
+						_sizeRow(L("الشهادات"), _breakdown.certificates)
+						_sizeRow(L("الكاش"), _breakdown.cache)
+						_sizeRow(L("أخرى"), _breakdown.other)
+					}
+					Button {
+						Task { @MainActor in
+							StorageCleaner.cleanUnusedFiles()
+							await _refreshStorage()
+						}
+					} label: {
+						SettingsRow(title: L("تنظيف الملفات غير المستخدمة"), systemName: "sparkles", color: .teal)
+					}
 					Toggle(isOn: $_deleteOld) {
 						SettingsRow(title: L("حذف النسخة السابقة بعد التحديث"), systemName: "arrow.triangle.2.circlepath", color: .orange)
 					}
@@ -223,10 +240,16 @@ struct SettingsView: View {
 		}
 	}
 	
+	private func _sizeRow(_ title: String, _ bytes: Int64) -> some View {
+		LabeledContent(title, value: ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))
+	}
+	
 	private func _refreshStorage() async {
 		let used = await Task.detached(priority: .utility) { StorageCleaner.usedBytes() }.value
 		let cache = await Task.detached(priority: .utility) { StorageCleaner.cacheBytes() }.value
+		let parts = await Task.detached(priority: .utility) { StorageCleaner.breakdown() }.value
 		await MainActor.run {
+			_breakdown = parts
 			_usedBytes = used
 			_cacheBytes = cache
 		}

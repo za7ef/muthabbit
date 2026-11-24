@@ -30,7 +30,13 @@ extension Storage {
 			if let object = app as? NSManagedObject {
 				context.delete(object)
 			}
-			saveContext()
+			// Saved right away (not deferred), so files and records never get out of step
+			// if the app is closed just after the delete.
+			if Thread.isMainThread {
+				if context.hasChanges { try? context.save() }
+			} else {
+				saveContext()
+			}
 		}
 	}
 	
