@@ -66,7 +66,7 @@ jobs:
           echo "Version $VERSION build $BUILD bundle $BUNDLE"
           test "$BUILD" = "${{ github.run_number }}"
           test "$BUNDLE" = "com.za7ef.muthabbit"
-          cp packages/Muthabbit.ipa packages/Wasm.ipa
+          mv packages/Muthabbit.ipa packages/Wasm.ipa
           ls -la packages
 
       - name: Create release
@@ -75,9 +75,7 @@ jobs:
           tag_name: v${{ env.VERSION }}
           name: Wasm ${{ env.VERSION }} (Build ${{ env.BUILD }})
           body_path: RELEASE_NOTES.md
-          files: |
-            packages/Wasm.ipa
-            packages/Muthabbit.ipa
+          files: packages/Wasm.ipa
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
