@@ -1160,7 +1160,7 @@ enum StorageCleaner {
 	}
 	
 	/// «تنظيف الملفات غير المستخدمة»: orphan folders, unsigned copies of installed source apps,
-	/// exported IPAs (Archives), temporary files and the cache. Returns the bytes freed (nil while busy).
+	/// exported IPAs (Archives) and temporary files (the cache has its own button). Returns the bytes freed (nil while busy).
 	@MainActor
 	static func cleanUnusedFiles() -> Int64? {
 		guard !QuickInstallManager.shared.isBusy else { return nil }
@@ -1170,7 +1170,7 @@ enum StorageCleaner {
 		if let items = try? _fm.contentsOfDirectory(at: _fm.archives, includingPropertiesForKeys: nil) {
 			items.forEach { try? _fm.removeItem(at: $0) }
 		}
-		clearCache()
+		cleanTemporaryFiles()
 		return max(0, before - usedBytes())
 	}
 	
