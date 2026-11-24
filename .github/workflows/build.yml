@@ -73,7 +73,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: وسم ${{ env.VERSION }} (البناء ${{ env.BUILD }})
+          name: Wasm ${{ env.VERSION }} (Build ${{ env.BUILD }})
           body_path: RELEASE_NOTES.md
           files: |
             packages/Wasm.ipa
