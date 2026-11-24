@@ -153,6 +153,14 @@ final class QuickInstallManager: ObservableObject {
 		return (true, "\(build ?? "")|\(short ?? "")")
 	}
 	
+	/// CFBundleVersion of the installed app as reported by iOS; nil when unknown.
+	nonisolated static func installedBuild(_ bundleID: String) -> String? {
+		guard let version = installedVersion(bundleID).version else { return nil }
+		let build = version.components(separatedBy: "|").first?
+			.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		return build.isEmpty ? nil : build
+	}
+	
 	/// Matches the history with what iOS reports as installed:
 	/// - adds stored signed apps that are installed but have no record;
 	/// - fills missing name/version from the newest signed copy;

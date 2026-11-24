@@ -50,7 +50,8 @@ struct SourcesAddView: View {
 		"https://stikdebug.xyz/index.json",
 		"https://apps.manicemu.site/altstore",
 		"https://alt.crystall1ne.dev",
-		"https://mikevillarroel.github.io/mikebuilds-source/originals.json"
+		"https://mikevillarroel.github.io/mikebuilds-source/originals.json",
+		"https://raw.githubusercontent.com/FrizzleM/SideInstaller/main/frizzlem.json"
 	].map { URL(string: $0)! }
 	
 	@State private var _isImporting = false

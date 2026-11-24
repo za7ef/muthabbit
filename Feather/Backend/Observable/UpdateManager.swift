@@ -197,7 +197,12 @@ final class UpdateManager: ObservableObject {
 					continue
 				}
 				
-				guard !_isSameVersion(remote: remoteVersion, stored: effectiveVersion) else {
+				let deviceBundleID = localApp.identifier ?? sourceAppIdentifier
+				guard !_isSameVersion(
+					remote: remoteVersion,
+					stored: effectiveVersion,
+					installedBuild: { QuickInstallManager.installedBuild(deviceBundleID) }
+				) else {
 					continue
 				}
 				
@@ -236,20 +241,34 @@ final class UpdateManager: ObservableObject {
 		return foundUpdates
 	}
 	
-	private func _isSameVersion(remote: String, stored: String?) -> Bool {
+	/// Same version → no update notice. When the version numbers match and both sides have a
+	/// build number, the build decides: same build → no update, different build → update.
+	/// The installed build comes from the stored record ("1.1 (16)") or, when it has none,
+	/// from iOS (`installedBuild`, read only when needed). Without a build on either side,
+	/// the version match alone decides.
+	private func _isSameVersion(
+		remote: String,
+		stored: String?,
+		installedBuild: () -> String?
+	) -> Bool {
 		guard let stored, !stored.isEmpty else { return false }
 		if remote == stored { return true }
-		// Stored value without a build number (e.g. taken from the IPA itself):
-		// compare marketing versions only, to avoid false update notices.
-		if !stored.contains(" (") {
-			let base = SourceAppProvenance.baseVersion(remote)
-			if base == stored { return true }
-			// Plain number from the IPA (e.g. "2.3.4", "1.0") against source text such as
-			// "v2.3.4" or "1.0b15-release": same release → no false update notice.
-			// Stays strict when both sides carry suffixes ("1.0b15" vs "1.0b16" is an update).
-			if VersionMatch.isPlain(stored) || VersionMatch.isPlain(base) {
-				return VersionMatch.sameRelease(base, stored)
-			}
+		guard _isSameMarketingVersion(remote: remote, stored: stored) else { return false }
+		guard let remoteBuild = VersionMatch.build(remote) else { return true }
+		guard let localBuild = VersionMatch.build(stored) ?? installedBuild() else { return true }
+		return remoteBuild == localBuild
+	}
+	
+	/// Marketing versions only (build numbers ignored).
+	private func _isSameMarketingVersion(remote: String, stored: String) -> Bool {
+		let remoteBase = SourceAppProvenance.baseVersion(remote)
+		let storedBase = SourceAppProvenance.baseVersion(stored)
+		if remoteBase == storedBase { return true }
+		// Plain number (e.g. "2.3.4", "1.1") against source text such as "v2.3.4",
+		// "andarium-1.1" or "1.0b15-release": same release → no false update notice.
+		// Stays strict when both sides carry suffixes ("1.0b15" vs "1.0b16" is an update).
+		if VersionMatch.isPlain(storedBase) || VersionMatch.isPlain(remoteBase) {
+			return VersionMatch.sameRelease(remoteBase, storedBase)
 		}
 		return false
 	}
