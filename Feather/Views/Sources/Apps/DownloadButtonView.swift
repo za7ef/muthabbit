@@ -21,6 +21,7 @@ struct DownloadButtonView: View {
 	var compact: Bool = false
 	@ObservedObject private var downloadManager = DownloadManager.shared
 	@ObservedObject private var quickInstall = QuickInstallManager.shared
+	@ObservedObject private var selfUpdate = SelfUpdateManager.shared
 	
 	private var _key: String { app.id ?? app.currentUniqueId }
 	
@@ -216,7 +217,11 @@ struct DownloadButtonView: View {
 				.compatTransition()
 			} else {
 				Button {
-					if let url = app.currentDownloadUrl {
+					// This app: the GitHub release when it is newer than what the source lists.
+					if app.id == QuickInstallManager.ownBundleID, let info = selfUpdate.available,
+					   (app.currentVersion ?? "0").compare(info.version, options: .numeric) == .orderedAscending {
+						SelfUpdateManager.shared.install(info)
+					} else if let url = app.currentDownloadUrl {
 						quickInstall.installFromSource(
 							url: url,
 							downloadID: app.currentUniqueId,
@@ -262,7 +267,9 @@ struct DownloadButtonView: View {
 	}
 	
 	/// Source version of this app is newer than the running build.
+	/// This app only: a newer version in the source, or a newer GitHub release (the source can lag behind).
 	private var _isNewerThanRunning: Bool {
+		if selfUpdate.available != nil { return true }
 		guard let remote = app.currentVersion else { return false }
 		return remote.compare(AppInfo.marketingVersion, options: .numeric) == .orderedDescending
 	}

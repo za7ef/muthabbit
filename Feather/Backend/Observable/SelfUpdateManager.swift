@@ -9,6 +9,7 @@
 
 import Foundation
 import UIKit
+import Combine
 
 enum AppInfo {
 	static let displayName = "وسم"
@@ -40,10 +41,15 @@ struct SelfUpdateInfo: Equatable {
 }
 
 @MainActor
-final class SelfUpdateManager {
+final class SelfUpdateManager: ObservableObject {
 	static let shared = SelfUpdateManager()
 	
+	/// Latest GitHub release of this app, when newer than the running version. Used by the store
+	/// button, so «تحديث» shows even while the apps source has not caught up with the release yet.
+	@Published private(set) var available: SelfUpdateInfo?
+	
 	private var _didCheckThisLaunch = false
+	private var _lastRefresh: Date?
 	private let _skipKey = "muthabbit.selfUpdate.dismissedTag"
 	
 	private init() {}
@@ -55,13 +61,40 @@ final class SelfUpdateManager {
 		
 		Task {
 			guard let info = await _fetchLatest() else { return }
-			guard Self.isNewer(remoteVersion: info.version, remoteBuild: info.build) else { return }
+			_lastRefresh = Date()
+			guard Self.isNewer(remoteVersion: info.version, remoteBuild: info.build) else { available = nil; return }
+			available = info
 			
 			let tagKey = "\(info.version)-\(info.build)"
 			if UserDefaults.standard.string(forKey: _skipKey) == tagKey { return }
 			
 			_present(info, tagKey: tagKey)
 		}
+	}
+	
+	/// Silent refresh of `available` (on returning to the app), at most every 10 minutes.
+	func refresh() {
+		if let last = _lastRefresh, Date().timeIntervalSince(last) < 600 { return }
+		_lastRefresh = Date()
+		Task {
+			guard let info = await _fetchLatest() else { return }
+			available = Self.isNewer(remoteVersion: info.version, remoteBuild: info.build) ? info : nil
+		}
+	}
+	
+	/// Same self-update flow as the alert: download → sign → install over itself.
+	func install(_ info: SelfUpdateInfo) {
+		guard let ipa = info.ipaURL else {
+			UIApplication.shared.open(info.pageURL)
+			return
+		}
+		QuickInstallManager.shared.installFromSource(
+			url: ipa,
+			downloadID: "Muthabbit.selfUpdate.\(info.version).\(info.build)",
+			key: QuickInstallManager.ownBundleID,
+			provenance: nil,
+			isUpdate: true
+		)
 	}
 	
 	static func isNewer(remoteVersion: String, remoteBuild: Int) -> Bool {
@@ -102,7 +135,10 @@ final class SelfUpdateManager {
 			let release = try JSONDecoder().decode(Release.self, from: data)
 			guard let parsed = Self.parseTag(release.tag_name) else { return nil }
 			
-			let ipa = release.assets.first(where: { $0.name.lowercased().hasSuffix(".ipa") })?.browser_download_url
+			// Wasm.ipa from 1.24 on; older releases only have Muthabbit.ipa; otherwise any .ipa.
+			let ipa = (release.assets.first(where: { $0.name == "Wasm.ipa" })
+				?? release.assets.first(where: { $0.name == "Muthabbit.ipa" })
+				?? release.assets.first(where: { $0.name.lowercased().hasSuffix(".ipa") }))?.browser_download_url
 			return SelfUpdateInfo(
 				version: parsed.version,
 				build: parsed.build,
@@ -141,18 +177,7 @@ final class SelfUpdateManager {
 			UserDefaults.standard.set(tagKey, forKey: self._skipKey)
 		}
 				let update = UIAlertAction(title: L("تحديث"), style: .default) { _ in
-			guard let ipa = info.ipaURL else {
-				UIApplication.shared.open(info.pageURL)
-				return
-			}
-			// Download → sign with the selected certificate → install over itself (Server method).
-			QuickInstallManager.shared.installFromSource(
-				url: ipa,
-				downloadID: "Muthabbit.selfUpdate.\(info.build)",
-				key: Bundle.main.bundleIdentifier ?? "com.za7ef.muthabbit",
-				provenance: nil,
-				isUpdate: true
-			)
+			SelfUpdateManager.shared.install(info)
 		}
 		
 		UIAlertController.showAlert(
