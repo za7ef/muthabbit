@@ -128,7 +128,7 @@ final class UpdateManager: ObservableObject {
 			
 			let sourceAppIdentifier: String
 			let sourceAppVersion: String?
-			let storedSourceURL: URL
+			let storedSourceURL: URL?
 			if let directMetadata = metadataByUUID[localUUID] {
 				guard
 					let metadataSourceAppIdentifier = directMetadata.sourceAppIdentifier,
@@ -167,6 +167,11 @@ final class UpdateManager: ObservableObject {
 				sourceAppIdentifier = localIdentifier
 				sourceAppVersion = localApp.version
 				storedSourceURL = localSourceURL
+			} else if let localIdentifier = localApp.identifier {
+				// Installed from a file or link (no source record): matched by bundle id in any source.
+				sourceAppIdentifier = localIdentifier
+				sourceAppVersion = localApp.version
+				storedSourceURL = nil
 			} else {
 				continue
 			}
@@ -176,12 +181,16 @@ final class UpdateManager: ObservableObject {
 				? AppInfo.marketingVersion + " (" + AppInfo.buildNumber + ")"
 				: sourceAppVersion
 			
-			for (sourceURL, repository) in repositories {
-
-				
-				guard _matchesStoredRepository(storedSourceURL: storedSourceURL, sourceURL: sourceURL) else {
-					continue
-				}
+			// The linked source first; when it is missing or no longer lists the app (e.g. the source
+			// was re-added under another URL), any source that lists the same bundle id.
+			let linked = repositories.filter { pair in
+				guard let stored = storedSourceURL else { return false }
+				return _matchesStoredRepository(storedSourceURL: stored, sourceURL: pair.0)
+			}
+			let linkedHasApp = linked.contains { pair in pair.1.apps.contains { remote in remote.id == sourceAppIdentifier } }
+			let candidates = linkedHasApp ? linked : repositories
+			
+			for (sourceURL, repository) in candidates {
 				
 				guard let remoteApp = repository.apps.first(where: { $0.id == sourceAppIdentifier }) else {
 					continue
