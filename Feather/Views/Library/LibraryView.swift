@@ -56,7 +56,9 @@ struct LibraryView: View {
 	}
 	
 	private func _update(_ item: Item) -> AppUpdate? {
-		item.signed.flatMap { _updateManager.update(for: $0) }
+		// By bundle id: apps whose signed copy was removed still show their update.
+		_updateManager.update(forInstalled: item.id)
+			?? item.signed.flatMap { _updateManager.update(for: $0) }
 	}
 	
 	private func _key(_ item: Item) -> String {

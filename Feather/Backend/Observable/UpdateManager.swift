@@ -16,6 +16,8 @@ import NimbleJSON
 struct AppUpdate: Identifiable, Equatable {
 	let id: String
 	let localUUID: String
+	/// Bundle id of the installed app (the «تطبيقاتي» entry this update belongs to).
+	let localBundleID: String
 	let localVersion: String?
 	let remoteVersion: String
 	let appName: String
@@ -35,7 +37,9 @@ final class UpdateManager: ObservableObject {
 	@Published private(set) var isChecking = false
 	@Published private(set) var lastCheckedDate: Date?
 	
-	private let _dataService = NBFetchService()
+	/// A check requested while another one is running runs again right after it, so a
+	/// pull-to-refresh or post-install check is never dropped.
+	private var _pendingRecheck: (sources: [AltSource], localApps: [AppInfoPresentable])?
 	
 	private init() {}
 	
@@ -46,19 +50,33 @@ final class UpdateManager: ObservableObject {
 	
 	func update(for app: AppInfoPresentable) -> AppUpdate? {
 		guard let uuid = app.uuid else { return nil }
-		return updates[uuid]
+		if let update = updates[uuid] { return update }
+		guard let bundleID = app.identifier else { return nil }
+		return update(forInstalled: bundleID)
+	}
+	
+	/// The update for an installed app, by its bundle id (works with or without a stored signed copy).
+	func update(forInstalled bundleID: String) -> AppUpdate? {
+		updates.values.first { $0.localBundleID == bundleID }
 	}
 	
 	func checkForUpdates(
 		sources: [AltSource],
 		localApps: [AppInfoPresentable]
 	) async {
-		guard !isChecking else { return }
+		guard !isChecking else {
+			_pendingRecheck = (sources, localApps)
+			return
+		}
 		
 		isChecking = true
 		defer {
 			isChecking = false
 			lastCheckedDate = Date()
+			if let next = _pendingRecheck {
+				_pendingRecheck = nil
+				Task { await self.checkForUpdates(sources: next.sources, localApps: next.localApps) }
+			}
 		}
 		
 		var repositories: [(URL, ASRepository)] = await _fetchRepositories(from: sources)
@@ -90,16 +108,21 @@ final class UpdateManager: ObservableObject {
 		return repositories
 	}
 	
+	/// Always reads the source from the network (never a cached copy), so a version published
+	/// minutes ago is seen by the very next check.
 	private func _fetchRepository(from url: URL) async -> ASRepository? {
-		await withCheckedContinuation { continuation in
-			_dataService.fetch(from: url) { (result: RepositoryDataHandler) in
-				switch result {
-				case .success(let repository):
-					continuation.resume(returning: repository)
-				case .failure:
-					continuation.resume(returning: nil)
-				}
+		var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 30)
+		request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+		do {
+			let (data, response) = try await URLSession.shared.data(for: request)
+			if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+				print("[UpdateManager] \(url.absoluteString): HTTP \(http.statusCode)")
+				return nil
 			}
+			return try JSONDecoder().decode(ASRepository.self, from: data)
+		} catch {
+			print("[UpdateManager] \(url.absoluteString): \(error)")
+			return nil
 		}
 	}
 	
@@ -155,11 +178,11 @@ final class UpdateManager: ObservableObject {
 				sourceAppIdentifier = metadataSourceAppIdentifier
 				sourceAppVersion = fallback.metadata.sourceAppVersion
 				storedSourceURL = metadataSourceURL
-				Storage.shared.copySourceMetadata(
+				if !localUUID.hasPrefix(InstalledRecordApp.uuidPrefix) { Storage.shared.copySourceMetadata(
 					from: fallback.appUUID,
 					to: localUUID,
 					kind: localApp.isSigned ? .signed : .imported
-				)
+				) }
 			} else if
 				let localSourceURL = localApp.source,
 				let localIdentifier = localApp.identifier
@@ -192,7 +215,9 @@ final class UpdateManager: ObservableObject {
 			
 			for (sourceURL, repository) in candidates {
 				
-				guard let remoteApp = repository.apps.first(where: { $0.id == sourceAppIdentifier }) else {
+				guard let remoteApp = repository.apps.first(where: { $0.id == sourceAppIdentifier })
+					?? repository.apps.first(where: { Self._isSuffixedCopy(local: sourceAppIdentifier, remote: $0.id) })
+				else {
 					continue
 				}
 				
@@ -212,6 +237,12 @@ final class UpdateManager: ObservableObject {
 					stored: effectiveVersion,
 					installedBuild: { QuickInstallManager.installedBuild(deviceBundleID) }
 				) else {
+					continue
+				}
+				// The installed app itself already runs what the source offers (e.g. a tweaked app
+				// listed as "1.1.9 (21.47.6)" while iOS reports 21.47.6) → no notice.
+				if localApp.identifier != Bundle.main.bundleIdentifier,
+				   Self._deviceRunsRemote(remote: remoteVersion, bundleID: deviceBundleID) {
 					continue
 				}
 				
@@ -235,6 +266,7 @@ final class UpdateManager: ObservableObject {
 				foundUpdates[localUUID] = AppUpdate(
 					id: localUUID,
 					localUUID: localUUID,
+					localBundleID: deviceBundleID,
 					localVersion: effectiveVersion ?? localApp.version,
 					remoteVersion: remoteVersion,
 					appName: remoteApp.currentName,
@@ -267,6 +299,43 @@ final class UpdateManager: ObservableObject {
 		guard let remoteBuild = VersionMatch.build(remote) else { return true }
 		guard let localBuild = VersionMatch.build(stored) ?? installedBuild().flatMap({ Int($0) }) else { return true }
 		return remoteBuild <= localBuild
+	}
+	
+	/// "com.app.id.A1B2C3" (signed with the 6-character random protection suffix, see
+	/// `Options.randomString`) is a copy of "com.app.id". Nothing looser, so another app whose id
+	/// merely starts the same way is never matched.
+	static func _isSuffixedCopy(local: String, remote: String?) -> Bool {
+		guard let remote, !remote.isEmpty, local.hasPrefix(remote + ".") else { return false }
+		let suffix = local.dropFirst(remote.count + 1)
+		let allowed = Set("0123456789ABCDEF-")
+		return suffix.count == 6 && suffix.allSatisfy { allowed.contains($0) }
+	}
+	
+	/// True when the version iOS reports for the installed app (CFBundleShortVersionString or
+	/// CFBundleVersion) is exactly the source's version or build. Unknown → false.
+	private static func _deviceRunsRemote(remote: String, bundleID: String) -> Bool {
+		guard let reported = QuickInstallManager.installedVersion(bundleID).version else { return false }
+		let parts = reported.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+		let installedBuild = parts.first ?? ""
+		let installedShort = parts.count > 1 ? parts[1] : ""
+		let remoteBase = SourceAppProvenance.baseVersion(remote)
+		var remoteBuild: String?
+		if let open = remote.range(of: " (") {
+			var rest = remote[open.upperBound...]
+			if rest.hasSuffix(")") { rest = rest.dropLast() }
+			remoteBuild = String(rest).trimmingCharacters(in: .whitespacesAndNewlines)
+		}
+		guard !installedShort.isEmpty else { return false }
+		if let remoteBuild, !remoteBuild.isEmpty {
+			// Both the version and the build must match what is installed.
+			if VersionMatch.sameRelease(remoteBase, installedShort) {
+				// Same version: the build decides.
+				return !installedBuild.isEmpty && remoteBuild == installedBuild
+			}
+			// Tweaked apps list the app's own version as the build ("1.1.9 (21.47.6)").
+			return VersionMatch.isPlain(remoteBuild) && remoteBuild == installedShort
+		}
+		return VersionMatch.sameRelease(remoteBase, installedShort)
 	}
 	
 	/// Marketing versions only (build numbers ignored).
